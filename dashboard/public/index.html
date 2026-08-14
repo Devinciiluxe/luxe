@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mission Jarvis — LUXE Studio</title>
+<title>DEMO ONLY — Mission Jarvis (not live · not Supabase)</title>
 <link rel="stylesheet" href="styles.css">
 <script src="mission-data.js"></script>
 <script src="jarvis-space.js"></script>
 <style>
   html,body{margin:0;height:100%;background:#08090B;overflow:hidden}
+  #demo-banner{position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 16px;background:#7A1F1F;color:#FFE8E8;font:700 12px/1.35 var(--font-mono),ui-monospace,monospace;letter-spacing:.06em;text-align:center;border-bottom:2px solid #FF6B6B}
+  #demo-banner a{color:#9DF3EA;text-decoration:underline}
   body{font-family:var(--font-mono);color:var(--text-hud)}
   a{color:#34E0D0;text-decoration:none}a:hover{color:#9DF3EA}
   input,button{font-family:inherit}
@@ -33,7 +35,10 @@
 </style>
 </head>
 <body>
-<div id="app" style="position:fixed;inset:0;background:var(--ground);overflow:hidden">
+<div id="demo-banner" role="status" aria-live="polite" style="position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 16px;background:#7a1f1f;color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.04em;text-align:center;border-bottom:2px solid #ff6b6b">
+  DEMO ONLY — NOT LIVE — static demo values from mission-data.js (not connected to Supabase / Postgres). Real pipeline UI: luxe-cortex <code>/cortex</code> via JARVIS_MINDMAP_URL. Do not treat these numbers as production truth.
+</div>
+<div id="app" style="position:fixed;inset:0;top:44px;background:var(--ground);overflow:hidden">
   <jarvis-space id="space" style="position:absolute;inset:0;width:100%;height:100%"></jarvis-space>
   <div style="position:absolute;inset:0;z-index:9;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 3px);mix-blend-mode:overlay"></div>
   <div style="position:absolute;inset:0;z-index:9;pointer-events:none;box-shadow:inset 0 0 220px rgba(1,2,3,.85)"></div>
@@ -43,19 +48,20 @@
       <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(145deg,var(--brass),#8A6A3F);box-shadow:0 0 18px rgba(198,164,105,.55)"></div>
       <div>
         <div style="font:700 12.5px/1 var(--font-mono);letter-spacing:.18em">LUXE STUDIO</div>
-        <div style="font:400 9px/1 var(--font-mono);letter-spacing:.16em;color:var(--text-hud-mute);margin-top:2px">MISSION JARVIS</div>
+        <div style="font:400 9px/1 var(--font-mono);letter-spacing:.16em;color:rgba(255,107,107,.85);margin-top:2px">DEMO ONLY · NOT LIVE</div>
       </div>
     </div>
     <div style="width:1px;height:26px;background:var(--hair);flex:none"></div>
     <div style="display:flex;align-items:center;gap:8px;flex:none">
-      <i style="width:6px;height:6px;border-radius:99px;background:var(--cyan);box-shadow:var(--glow-dot);animation:var(--pulse)"></i>
-      <span id="sysline" style="font:500 10px/1 var(--font-mono);letter-spacing:.18em;color:var(--text-hud-dim)">SYSTEM ONLINE // MISSION JARVIS v3.7</span>
+      <i style="width:6px;height:6px;border-radius:99px;background:#FF6B6B;box-shadow:0 0 10px rgba(255,107,107,.55)"></i>
+      <span id="sysline" style="font:500 10px/1 var(--font-mono);letter-spacing:.18em;color:rgba(255,107,107,.9)">DEMO ONLY // NOT LIVE // NOT SUPABASE // USE luxe-cortex /cortex</span>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:7px">
-      <div class="kpi"><div class="l">IN PIPELINE</div><div class="v" id="kPipe"></div></div>
-      <div class="kpi" style="border-color:var(--cyan-b);background:var(--cyan-tint);box-shadow:0 0 16px rgba(52,224,208,.14)"><div class="l" style="color:rgba(157,243,234,.7)">RENDERING</div><div class="v" id="kRend" style="color:var(--cyan-lift)"></div></div>
-      <div class="kpi" style="border-color:var(--amber-b);background:var(--amber-tint)"><div class="l" style="color:rgba(247,181,79,.75)">NEEDS YOU</div><div class="v" id="kNeed" style="color:var(--amber)"></div></div>
-      <div class="kpi" style="border-color:var(--brass-b);background:var(--brass-tint)"><div class="l" style="color:rgba(198,164,105,.8)">MTD</div><div class="v" id="kMtd" style="color:var(--brass-lift)"></div></div>
+      <span class="pill red" title="Values below are static demo snapshot">DEMO VALUES</span>
+      <div class="kpi"><div class="l">DEMO · IN PIPELINE</div><div class="v" id="kPipe"></div></div>
+      <div class="kpi" style="border-color:var(--cyan-b);background:var(--cyan-tint);box-shadow:0 0 16px rgba(52,224,208,.14)"><div class="l" style="color:rgba(157,243,234,.7)">DEMO · RENDERING</div><div class="v" id="kRend" style="color:var(--cyan-lift)"></div></div>
+      <div class="kpi" style="border-color:var(--amber-b);background:var(--amber-tint)"><div class="l" style="color:rgba(247,181,79,.75)">DEMO · NEEDS YOU</div><div class="v" id="kNeed" style="color:var(--amber)"></div></div>
+      <div class="kpi" style="border-color:var(--brass-b);background:var(--brass-tint)"><div class="l" style="color:rgba(198,164,105,.8)">DEMO · MTD</div><div class="v" id="kMtd" style="color:var(--brass-lift)"></div></div>
       <div style="width:1px;height:26px;background:var(--hair)"></div>
       <span id="clock" style="font:500 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.08em;color:var(--text-hud-dim);min-width:64px;text-align:right"></span>
     </div>
@@ -78,7 +84,7 @@
     <div style="height:1px;background:rgba(255,255,255,.06);flex:none"></div>
     <div style="flex:1;min-height:120px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
-        <div style="display:flex;align-items:center;gap:7px"><i style="width:5px;height:5px;border-radius:99px;background:var(--violet);box-shadow:0 0 9px var(--violet)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.18em;color:rgba(232,234,237,.72)">LIVE ACTIVITY</span></div>
+        <div style="display:flex;align-items:center;gap:7px"><i style="width:5px;height:5px;border-radius:99px;background:#FF6B6B;box-shadow:0 0 9px rgba(255,107,107,.5)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.18em;color:rgba(255,107,107,.85)">DEMO ACTIVITY · NOT LIVE</span></div>
         <button id="huntBtn" class="qbtn" title="Trigger lead hunt">HUNT ▸</button>
       </div>
       <div id="feed" style="display:flex;flex-direction:column;gap:2px"></div>
@@ -129,7 +135,7 @@
 
   <div style="position:absolute;right:16px;bottom:16px;z-index:12;text-align:right;pointer-events:none">
     <div id="corner" style="font:400 8.5px/1.6 var(--font-mono);letter-spacing:.12em;color:var(--text-hud-mute);font-variant-numeric:tabular-nums"></div>
-    <div id="srcline" style="font:400 8.5px/1.6 var(--font-mono);letter-spacing:.12em;color:rgba(52,224,208,.4)">CONNECTING…</div>
+    <div id="srcline" style="font:400 8.5px/1.6 var(--font-mono);letter-spacing:.12em;color:rgba(255,107,107,.85)">DEMO ONLY · STATIC mission-data.js · NOT SUPABASE</div>
   </div>
   <i style="position:absolute;top:59px;left:242px;width:16px;height:16px;border-top:1px solid rgba(52,224,208,.3);border-left:1px solid rgba(52,224,208,.3);z-index:11;pointer-events:none"></i>
   <i style="position:absolute;top:59px;right:8px;width:16px;height:16px;border-top:1px solid rgba(52,224,208,.3);border-right:1px solid rgba(52,224,208,.3);z-index:11;pointer-events:none"></i>
@@ -140,17 +146,17 @@
     <div style="width:min(420px,80vw);display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:12px;animation:lx-rise .5s var(--ease-ui) .1s both">
         <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(145deg,var(--brass),#8A6A3F);box-shadow:0 0 22px rgba(198,164,105,.6)"></div>
-        <div><div style="font:700 13px/1 var(--font-mono);letter-spacing:.2em">LUXE STUDIO</div><div style="font:400 9px/1 var(--font-mono);letter-spacing:.18em;color:var(--text-hud-mute);margin-top:3px">MISSION JARVIS v3.7</div></div>
+        <div><div style="font:700 13px/1 var(--font-mono);letter-spacing:.2em">LUXE STUDIO</div><div style="font:400 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(255,107,107,.85);margin-top:3px">DEMO ONLY · NOT LIVE · v3.7-demo</div></div>
       </div>
       <div style="height:1px;background:linear-gradient(90deg,var(--brass-b),transparent);animation:lx-rise .5s var(--ease-ui) .3s both"></div>
       <div style="font:400 10px/1.9 var(--font-mono);letter-spacing:.08em;color:var(--text-hud-dim)">
-        <div style="animation:lx-rise .4s var(--ease-ui) .5s both">neural map · loading node field <span style="color:var(--cyan)">ok</span></div>
-        <div style="animation:lx-rise .4s var(--ease-ui) .9s both">agents · 5 online <span style="color:var(--cyan)">ok</span></div>
-        <div style="animation:lx-rise .4s var(--ease-ui) 1.3s both">outbox · 20 queued · 0 failed <span style="color:var(--cyan)">ok</span></div>
-        <div style="animation:lx-rise .4s var(--ease-ui) 1.7s both">voice · standing by <span style="color:var(--violet-lift)">armed</span></div>
+        <div style="animation:lx-rise .4s var(--ease-ui) .5s both;color:rgba(255,107,107,.9)">demo surface · not connected to Supabase</div>
+        <div style="animation:lx-rise .4s var(--ease-ui) .9s both">static snapshot · mission-data.js <span style="color:var(--cyan)">loaded</span></div>
+        <div style="animation:lx-rise .4s var(--ease-ui) 1.3s both">live pipeline · use luxe-cortex /cortex</div>
+        <div style="animation:lx-rise .4s var(--ease-ui) 1.7s both">voice · local demo only <span style="color:var(--violet-lift)">optional</span></div>
       </div>
-      <div style="height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;animation:lx-rise .4s var(--ease-ui) .4s both"><div style="height:100%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:mj-bootbar 2.5s var(--ease-ui) .4s both"></div></div>
-      <div style="font:400 9px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-hud-mute);animation:lx-rise .4s var(--ease-ui) 2s both">systems initializing · click anywhere to enable voice + audio</div>
+      <div style="height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;animation:lx-rise .4s var(--ease-ui) .4s both"><div style="height:100%;background:#FF6B6B;box-shadow:0 0 12px rgba(255,107,107,.5);animation:mj-bootbar 2.5s var(--ease-ui) .4s both"></div></div>
+      <div style="font:400 9px/1 var(--font-mono);letter-spacing:.14em;color:rgba(255,107,107,.75);animation:lx-rise .4s var(--ease-ui) 2s both">demo boot · click anywhere for optional voice — numbers stay static</div>
     </div>
   </div>
 </div>

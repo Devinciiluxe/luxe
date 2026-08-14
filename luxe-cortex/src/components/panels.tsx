@@ -12,8 +12,8 @@ export function HunterLog({ events }: { events: LogEvent[] }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-        <span className="hud-title">Lead Hunter log</span>
-        <span className="chip chip-cyan">LIVE</span>
+        <span className="hud-title">Activity log</span>
+        <span className="chip chip-cyan" title="Supabase activity table">LIVE · SUPABASE</span>
       </div>
       <div className="feed flex-1 space-y-1 overflow-y-auto px-2 py-2">
         {events.map((e) => (
@@ -130,25 +130,29 @@ export function MetricsStack({ metrics, leads }: { metrics: Metrics | null; lead
   }, [leads]);
   const maxBar = Math.max(...stageBars.map((b) => b.count), 1);
 
-  // Reply-rate bar history (synthetic from the reply rate, video-style fast)
+  // Reply-rate bar history visualizes the live replyRate (decorative wave only).
   const wave = useMemo(() => {
-    const base = (m?.replyRate ?? 0.38) * 100;
+    if (m == null) return Array.from({ length: 22 }, () => 8);
+    const base = m.replyRate * 100;
     return Array.from({ length: 22 }, (_, i) => {
       const wob = Math.sin(i * 1.7) * 12 + Math.cos(i * 0.9) * 8;
       return Math.max(6, Math.min(96, base * 1.6 + wob));
     });
-  }, [m?.replyRate]);
+  }, [m?.replyRate, m]);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto feed">
-      <div className="border-b border-white/5 px-3 py-2">
+      <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
         <span className="hud-title">Metrics console</span>
+        <span className="chip chip-cyan" title="Derived from Supabase leads + settings">LIVE · SUPABASE</span>
       </div>
 
       {/* Pipeline value */}
       <div className="px-3 py-3 border-b border-white/5">
-        <div className="hud-title mb-1">Pipeline value</div>
-        <div className="font-mono text-2xl font-semibold tracking-tight text-[#e8f6f7] glow-cyan">{pipeline}</div>
+        <div className="hud-title mb-1">Pipeline value · live leads</div>
+        <div className="font-mono text-2xl font-semibold tracking-tight text-[#e8f6f7] glow-cyan">
+          {m ? pipeline : "—"}
+        </div>
         <div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-[#5c6b78]">
           <span className="text-[#00f2fe]">{m?.activeNodes ?? 0} ACTIVE NODES</span>
           <span>·</span>
@@ -158,19 +162,21 @@ export function MetricsStack({ metrics, leads }: { metrics: Metrics | null; lead
         </div>
       </div>
 
-      {/* Load dial */}
+      {/* Load dial — derived HUD, not host CPU */}
       <div className="flex items-center justify-between gap-3 border-b border-white/5 px-3 py-3">
         <div>
-          <div className="hud-title mb-1">System load</div>
-          <div className="font-mono text-3xl font-semibold text-[#e8f6f7]">{load}%</div>
-          <div className="mt-0.5 font-mono text-[9px] text-[#5c6b78]">EDGE FUNCTIONS GREEN</div>
+          <div className="hud-title mb-1">Node load dial</div>
+          <div className="font-mono text-3xl font-semibold text-[#e8f6f7]">{m ? `${load}%` : "—"}</div>
+          <div className="mt-0.5 font-mono text-[9px] text-[#5c6b78]">
+            DERIVED FROM LIVE NODE COUNT · NOT HOST CPU
+          </div>
         </div>
-        <RadialDial pct={load} />
+        <RadialDial pct={m ? load : 0} />
       </div>
 
       {/* Stage bars */}
       <div className="border-b border-white/5 px-3 py-3">
-        <div className="hud-title mb-2">Pipeline by stage</div>
+        <div className="hud-title mb-2">Pipeline by stage · live leads</div>
         <div className="space-y-1.5">
           {stageBars.map((b) => (
             <div key={b.stage} className="flex items-center gap-2">
@@ -190,8 +196,8 @@ export function MetricsStack({ metrics, leads }: { metrics: Metrics | null; lead
       {/* Reply-rate wave */}
       <div className="border-b border-white/5 px-3 py-3">
         <div className="mb-1 flex items-center justify-between">
-          <span className="hud-title">Reply rate</span>
-          <span className="font-mono text-[10px] text-[#00f2fe]">{replyRate}</span>
+          <span className="hud-title">Reply rate · live stages</span>
+          <span className="font-mono text-[10px] text-[#00f2fe]">{m ? replyRate : "—"}</span>
         </div>
         <div className="flex h-14 items-end gap-[3px]">
           {wave.map((h, i) => (
@@ -215,7 +221,7 @@ export function MetricsStack({ metrics, leads }: { metrics: Metrics | null; lead
         <div className="space-y-1.5 font-mono text-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[#8b98a5]">Lead Hunter</span>
-            <span className={`chip ${m?.hunterRunning ? "chip-cyan" : "chip-amber"}`}>{m?.hunterRunning ? "RUNNING" : "PAUSED"}</span>
+            <span className="chip chip-amber" title="Fabricated Math.random intake disabled — use scrape_listing jobs">DISABLED</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[#8b98a5]">Outbound engine</span>

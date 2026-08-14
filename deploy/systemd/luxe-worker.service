@@ -1,8 +1,9 @@
 [Unit]
-Description=LUXE Airbnb browser_jobs worker
-After=network.target luxe-lightpanda.service
-Requires=luxe-lightpanda.service
+Description=LUXE Airbnb browser_jobs worker (Lightpanda → Supabase)
 Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+After=network-online.target luxe-lightpanda.service
+Wants=network-online.target
+Requires=luxe-lightpanda.service
 
 [Service]
 Type=simple
@@ -10,9 +11,12 @@ User=luxecortex
 Group=luxecortex
 WorkingDirectory=/opt/luxe-mstr-rebuild/worker
 EnvironmentFile=/opt/luxe-mstr-rebuild/worker/.env
+# Dry-run stays default until operator arms with GO FOR IT + LUXE_PIPELINE_LIVE=1.
+# Do NOT set LUXE_PIPELINE_LIVE=1 here by default.
 ExecStart=/usr/bin/npm start
-Restart=on-failure
+Restart=always
 RestartSec=5
+StartLimitIntervalSec=0
 # Polls Supabase; no inbound ports.
 
 [Install]

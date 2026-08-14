@@ -1,6 +1,11 @@
-"""Client for the LUXE CORTEX sales pipeline REST API (/api/jarvis on the
-luxe-cortex dashboard, localhost:8787). Lets JARVIS read leads/metrics and
-drive pipeline actions (stage moves, hunter sweeps, proposals, bookings)."""
+"""Client for luxe-cortex REST mutations (/api/jarvis on :8787).
+
+WRITES ONLY. Pipeline counts, lead lookups, and job health MUST go through
+actions/luxe_supabase.py (PostgREST → same Supabase project cortex reads).
+
+Cortex /api/jarvis mutates Supabase-backed rows (set_stage, etc.). It is not a
+second source of truth for numbers — never use snapshot/get_lead here.
+"""
 import json
 import os
 import urllib.error
@@ -25,6 +30,13 @@ BASE_URL = os.environ.get("LUXE_CORTEX_URL", "") or _cfg.get("luxe_cortex_url", 
 # surfaces as a spoken error rather than a silent failed call.
 API_KEY = os.environ.get("JARVIS_API_KEY", "") or _cfg.get("jarvis_api_key", "")
 
+_READ_REFUSAL = (
+    "Sir, I will not report pipeline numbers through the cortex write API. "
+    "Use luxe_supabase_REAL_PIPELINE for all counts and lead lookups — that is "
+    "the same Supabase PostgREST source cortex displays. Root dashboard/ is demo-only "
+    "and is not part of the live path."
+)
+
 
 def _send(req: "urllib.request.Request") -> dict:
     req.add_header("Authorization", f"Bearer {API_KEY}")
@@ -43,10 +55,6 @@ def _send(req: "urllib.request.Request") -> dict:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
 
-def _request_get(path: str) -> dict:
-    return _send(urllib.request.Request(f"{BASE_URL}{path}", method="GET"))
-
-
 def _request_post(path: str, body: dict) -> dict:
     req = urllib.request.Request(f"{BASE_URL}{path}", data=json.dumps(body).encode(), method="POST")
     req.add_header("Content-Type", "application/json")
@@ -62,24 +70,9 @@ def luxe_pipeline(parameters: dict) -> str:
 
     action = (parameters.get("action", "")).strip()
 
-    if action == "snapshot":
-        r = _request_get("/api/jarvis")
-        if not r.get("ok"):
-            return f"Sir, I couldn't reach the pipeline: {r.get('error', 'unknown error')}"
-        m = r["metrics"]
-        return (
-            f"{len(r['leads'])} leads in the pipeline, worth ${m['pipelineCents']/100:,.0f}. "
-            f"{m['pendingReplies']} pending replies, {m['pendingOutreach']} pending outreach, "
-            f"{m['won']} won, {m['noShows']} no-shows. Reply rate {m['replyRate']*100:.0f}%."
-        )
-
-    if action == "get_lead":
-        lead_id = parameters.get("lead_id", "")
-        r = _request_get(f"/api/jarvis?leadId={lead_id}")
-        if not r.get("ok"):
-            return f"Sir, I couldn't find that lead: {r.get('error', 'unknown error')}"
-        l = r["lead"]
-        return f"{l['name']} at {l['company']}, stage {l['stage']}, score {l['score']}, value ${l['value']/100:,.0f}."
+    # Hard-block read paths — dual stats sources caused misleading counts.
+    if action in ("snapshot", "get_lead", "status", "metrics", "pipeline_status"):
+        return _READ_REFUSAL
 
     if action == "set_stage":
         r = _request_post("/api/jarvis", {
@@ -92,16 +85,12 @@ def luxe_pipeline(parameters: dict) -> str:
         return f"Moved to {parameters.get('stage', '')}, sir."
 
     if action == "run_hunter":
-        # Disabled deliberately. createScrapedLead() (db.server.ts:519) invents a
-        # lead — random name, random company from two word lists, value =
-        # Math.random()*420k, random score — and INSERTs it into the local D1
-        # `leads` table. allLeads() reads Supabase, never D1, so the lead never
-        # reaches the pipeline; it is only ever returned here and spoken aloud as
-        # if it were real. Re-enable only when backed by an actual scraper.
+        # Disabled deliberately. createScrapedLead() invented Math.random leads
+        # into D1 while allLeads() reads Supabase. Real intake: scrape_listing.
         return (
             "Sir, run_hunter is disabled. It fabricated leads with a random number "
-            "generator and wrote them where nothing reads them. Real leads come from "
-            "the scrape_listing worker jobs."
+            "generator. Real leads come from scrape_listing / scrape_search worker jobs "
+            "via luxe_supabase_REAL_PIPELINE."
         )
 
     if action == "toggle_automation":

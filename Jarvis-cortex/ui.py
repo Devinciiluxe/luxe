@@ -340,16 +340,42 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 def _mindmap_url() -> str:
+    """Resolve the embedded ops UI URL. Must be luxe-cortex /cortex (Supabase).
+
+    Rejects root dashboard/ demo paths so Jarvis never loads mission-data.js as ops.
+    """
+    candidates: list[str] = []
     env = os.environ.get("JARVIS_MINDMAP_URL", "").strip()
     if env:
-        return env
+        candidates.append(env)
     try:
         cfg = json.loads((Path(__file__).resolve().parent / "config" / "api_keys.json").read_text(encoding="utf-8"))
         u = str(cfg.get("jarvis_mindmap_url") or "").strip()
         if u:
-            return u
+            candidates.append(u)
     except Exception:
         pass
+    candidates.append("http://localhost:8787/cortex")
+
+    def _is_demo_dashboard(url: str) -> bool:
+        low = url.lower().replace("\\", "/")
+        if "mission-data" in low:
+            return True
+        # file://…/dashboard/public or localhost static demo without /cortex
+        if "/dashboard/public" in low or low.rstrip("/").endswith("/dashboard"):
+            return True
+        if "file:" in low and "dashboard" in low and "/cortex" not in low:
+            return True
+        return False
+
+    for url in candidates:
+        if _is_demo_dashboard(url):
+            print(
+                f"[JARVIS] Refusing demo mindmap URL {url!r} — forcing "
+                "http://localhost:8787/cortex (luxe-cortex / Supabase)."
+            )
+            continue
+        return url
     return "http://localhost:8787/cortex"
 
 
@@ -357,15 +383,11 @@ MIND_MAP_URL = _mindmap_url()
 
 
 class MindMapView(QWebEngineView):
-    """The talking 3D pipeline map — embeds JARVIS CORTEX (../../luxe-cortex,
-    a real Three.js brain of lead-nodes wired to D1 + a live-push Durable
-    Object, served by `wrangler dev`) as JARVIS's main visual, replacing the
-    painted waveform HUD. Same attribute surface as HudCanvas (.state,
-    .speaking, .muted, ._assistant_name) so MainWindow's existing
-    _apply_state()/_toggle_mute() code drives it without changes — each
-    setter below forwards into the page via the window.__jarvisBridge JS hook
-    luxe-cortex/src/routes/cortex.tsx installs, instead of repainting
-    locally."""
+    """Embeds luxe-cortex at /cortex (Supabase-backed leads + EventSource).
+
+    Default JARVIS_MINDMAP_URL is http://localhost:8787/cortex — not the root
+    dashboard/ demo (mission-data.js). Same attribute surface as HudCanvas.
+    """
 
     def __init__(self, face_path: str, assistant_name: str = "J.A.R.V.I.S", parent=None):
         super().__init__(parent)

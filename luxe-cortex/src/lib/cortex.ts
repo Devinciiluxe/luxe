@@ -1,7 +1,8 @@
 // Server functions = the "edge functions" of the app. Every dashboard action
 // (chat send, node glow trigger, hunter sweep, stage move, pause/resume) goes
-// through one of these. They run on the Worker (or Node in `bun dev`) and are
-// the only code path that touches D1/R2.
+// through one of these. They run on the Worker (or Node in `bun dev`).
+// Leads, activity, messages, settings, and metrics are Supabase-backed —
+// never mission-data.js / D1 demo fixtures. D1 remains for meetings only.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
@@ -22,7 +23,6 @@ import {
   composeReply,
   generateProposalDoc,
   pauseAutomation,
-  runHunterSweep,
   readProposalDoc,
   setBroadcaster,
 } from "./jarvis.server";
@@ -46,8 +46,9 @@ function ensureBroadcast() {
 
 export const getSnapshot = createServerFn({ method: "GET" }).handler(async (): Promise<Snapshot> => {
   ensureBroadcast();
+  // Throws on Supabase outage — callers must surface error, never invent demo rows.
   const [leads, events, metrics] = await Promise.all([allLeads(), recentEvents(30), computeMetrics()]);
-  return { leads, events, metrics, activeLeadId: leads[0]?.id ?? null };
+  return { leads, events, metrics, activeLeadId: leads[0]?.id ?? null, error: null };
 });
 
 export const getLeadThread = createServerFn({ method: "GET" })
@@ -169,9 +170,10 @@ export const toggleAutomation = createServerFn({ method: "POST" })
 export const runHunter = createServerFn({ method: "POST" })
   .validator(z.object({}).partial().optional())
   .handler(async () => {
-    ensureBroadcast();
-    const { lead } = await runHunterSweep();
-    return { lead };
+    // Hard-blocked — UI/voice "Lead Hunter" must not invent leads.
+    throw new Error(
+      "Lead Hunter is disabled. Queue scrape_listing or scrape_search via the browser_jobs worker (Supabase), not Math.random leads.",
+    );
   });
 
 export const markNoShow = createServerFn({ method: "POST" })

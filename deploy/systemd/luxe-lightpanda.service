@@ -1,16 +1,24 @@
 [Unit]
 Description=Lightpanda CDP (Airbnb browser for LUXE worker)
-After=network.target
 Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=luxecortex
 Group=luxecortex
+# Single browser-level WS — worker uses /json/version + Target.createTarget
+# (NOT Chromium /json/new).
 ExecStart=/usr/local/bin/lightpanda serve --host 127.0.0.1 --port 9222
-Restart=on-failure
+Restart=always
 RestartSec=3
+# Survive transient OOM; keep headroom for CDP pages.
 MemoryMax=1G
+MemoryHigh=768M
+LimitNOFILE=65536
+# Do not kill sibling units if Lightpanda flaps.
+StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target

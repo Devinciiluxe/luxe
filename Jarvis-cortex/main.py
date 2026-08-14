@@ -151,16 +151,14 @@ TOOL_DECLARATIONS = [
     {
         "name": "luxe_pipeline_LIVE_WRITES",
         "description": (
-            "LIVE PRODUCTION WRITES to the real pipeline, via the Luxe Cortex dashboard at "
-            "localhost:8787. This is NOT a sandbox — every action here changes real Supabase "
-            "rows for real leads. It was previously named '..._DEMO_SANDBOX' while doing exactly "
-            "this; the name was wrong, not the behaviour. "
-            "Use it ONLY for state changes: set_stage, mark_no_show, make_proposal, "
+            "WRITES ONLY to the real pipeline via luxe-cortex /api/jarvis (which mutates "
+            "Supabase). Allowed actions: set_stage, mark_no_show, make_proposal, "
             "toggle_automation. "
-            "For every read — pipeline overviews, lead lookups, worker and session health — use "
-            "luxe_supabase_REAL_PIPELINE instead. "
-            "This tool needs the dashboard to be running; if it is unreachable, say so plainly "
-            "rather than guessing at numbers."
+            "NEVER use this tool for counts, pipeline value, lead lookups, or health — "
+            "those MUST use luxe_supabase_REAL_PIPELINE (Supabase PostgREST), the same "
+            "source of truth as the cortex /cortex UI. "
+            "Root repo dashboard/ is DEMO ONLY and is not part of the live operator path. "
+            "If cortex is unreachable, say so — do not invent numbers."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -169,12 +167,11 @@ TOOL_DECLARATIONS = [
                     "type": "STRING",
                     "description": (
                         "set_stage | toggle_automation | make_proposal | mark_no_show. "
-                        "(run_hunter was removed — it generated leads from Math.random() and "
-                        "wrote them to a table nothing reads. Reads go to "
-                        "luxe_supabase_REAL_PIPELINE.)"
+                        "Reads (snapshot/get_lead) are refused — use luxe_supabase_REAL_PIPELINE. "
+                        "run_hunter is disabled (fabricated Math.random leads)."
                     ),
                 },
-                "lead_id": {"type": "STRING", "description": "Lead id, required for get_lead/set_stage/make_proposal/mark_no_show"},
+                "lead_id": {"type": "STRING", "description": "Lead id, required for set_stage/make_proposal/mark_no_show"},
                 "stage": {"type": "STRING", "description": "New stage for set_stage: pending_outreach | outreach_sent | replied | qualified | won | lost | no_show"},
                 "which": {"type": "STRING", "description": "hunter | outreach — for toggle_automation"},
                 "on": {"type": "BOOLEAN", "description": "true/false — for toggle_automation"},
@@ -185,22 +182,29 @@ TOOL_DECLARATIONS = [
     {
         "name": "luxe_supabase_REAL_PIPELINE",
         "description": (
-            "THE REAL LUXE sales pipeline — 5,000+ real leads, the browser_jobs worker queue "
-            "running on the VM, and real Airbnb outreach automation. This is the user's actual "
-            "business data. ALWAYS use this tool (not the demo one) for any question about "
-            "leads, the pipeline, deal stages, pipeline value, or outreach — unless the user "
-            "explicitly asks about the 'demo' or 'sandbox'. "
-            "Actions: pipeline_status, lead lookups, worker health, and queueing jobs "
-            "(session_refresh, inbox_sync, scrape_listing, or send_message for outreach). "
-            "send_message defaults to a dry run (drafts but does not send) unless the user "
-            "explicitly says to confirm/send for real, in which case pass confirm_send=true."
+            "SOLE SOURCE OF TRUTH for live pipeline stats — Supabase PostgREST "
+            "(same project luxe-cortex /cortex reads via allLeads/computeMetrics). "
+            "Use for EVERY question about lead counts, stages, jobs, worker health, "
+            "or outreach queue. There is no demo sandbox tool for ops. "
+            "Also queues browser_jobs (session_refresh, inbox_sync, scrape_listing, "
+            "send_message). Dry-run for SENDS stays ON until GO FOR IT → arm_live; "
+            "stats are always live from Supabase and do not require arming. "
+            "Even when armed, send_message still needs confirm_send=true. "
+            "Use watch_jobs to narrate the claim→process→done loop."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "pipeline_status | get_lead | job_status | worker_health | queue_job",
+                    "description": (
+                        "pipeline_status | get_lead | job_status | worker_health | "
+                        "watch_jobs | queue_job | arm_live | disarm_live | live_status"
+                    ),
+                },
+                "limit": {
+                    "type": "NUMBER",
+                    "description": "Optional row limit for watch_jobs (default 15).",
                 },
                 "query": {"type": "STRING", "description": "Search text for get_lead (name, email, or property)"},
                 "kind": {"type": "STRING", "description": "Job kind for queue_job: session_refresh | inbox_sync | scrape_listing | send_message"},
@@ -215,7 +219,20 @@ TOOL_DECLARATIONS = [
                         "limit": {"type": "NUMBER"},
                     },
                 },
-                "confirm_send": {"type": "BOOLEAN", "description": "Set true only when the user explicitly confirms sending a real outbound message"},
+                "confirm_send": {
+                    "type": "BOOLEAN",
+                    "description": (
+                        "Per-message safety: set true only after the user confirms THIS send. "
+                        "Ignored unless the pipeline was already armed with GO FOR IT."
+                    ),
+                },
+                "phrase": {
+                    "type": "STRING",
+                    "description": (
+                        "For arm_live only: must be exactly GO FOR IT (case-sensitive). "
+                        "Do not invent this phrase. Arms SENDS only — not stats."
+                    ),
+                },
             },
             "required": ["action"],
         },
@@ -943,6 +960,16 @@ class JarvisLive:
                     _os._exit(0)
                 asyncio.create_task(_do_shutdown())
 
+            elif name == "luxe_pipeline_LIVE_WRITES":
+                from actions.luxe_pipeline import luxe_pipeline
+                r = await asyncio.to_thread(luxe_pipeline, parameters=args)
+                result = r or "Done."
+
+            elif name == "luxe_supabase_REAL_PIPELINE":
+                from actions.luxe_supabase import luxe_supabase
+                r = await asyncio.to_thread(luxe_supabase, parameters=args)
+                result = r or "Done."
+
             else:
                 result = f"Unknown tool: {name}"
 
@@ -1045,6 +1072,13 @@ class JarvisLive:
                             if full_in:
                                 self.ui.write_log(f"You: {full_in}")
                                 self._session_log.append(f"User: {full_in}")
+                                try:
+                                    from actions.pipeline_arm import utterance_contains_arm_phrase, arm_pipeline
+                                    if utterance_contains_arm_phrase(full_in):
+                                        arm_pipeline()
+                                        self.ui.write_log("Pipeline ARMED (GO FOR IT)")
+                                except Exception:
+                                    pass
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
                                         "type": "log", "speaker": "user",
@@ -1591,12 +1625,12 @@ class JarvisLive:
             await asyncio.sleep(delay)
 
 def _check_mindmap_server() -> None:
-    """Checks whether luxe-cortex (../../luxe-cortex) is reachable at the URL
-    MindMapView loads (ui.py's MIND_MAP_URL). Unlike the old dashboard, this
-    is `wrangler dev` — it needs a build + D1 migration step before it can
-    serve anything, so auto-spawning it blind here would be more likely to
-    wedge than help. Non-fatal either way: the embedded view just shows its
-    own connection error if nothing's listening, same as any browser tab."""
+    """Checks whether luxe-cortex is reachable at MindMapView's MIND_MAP_URL.
+
+    That URL must be …/cortex (Supabase-backed). Root dashboard/ demo is refused
+    in ui._mindmap_url. Unlike the old static dashboard, cortex needs wrangler.
+    Non-fatal: the embedded view shows its own connection error if down.
+    """
     import socket
     from urllib.parse import urlparse
     from ui import MIND_MAP_URL
@@ -1612,14 +1646,15 @@ def _check_mindmap_server() -> None:
         port = 80
     try:
         with socket.create_connection((host, port), timeout=0.3):
-            print(f"[JARVIS] Mind-map ({url}) is up.")
+            print(f"[JARVIS] Mind-map LIVE cortex ({url}) is up.")
             return
     except OSError:
         pass
     print(
-        f"[JARVIS] Mind-map ({url}) isn't reachable yet. Start it with:\n"
+        f"[JARVIS] Mind-map ({url}) isn't reachable yet. Start luxe-cortex (not root dashboard/):\n"
         f"  cd {BASE_DIR.parent / 'luxe-cortex'} && bun run build && "
-        f"npx wrangler d1 migrations apply DB --local && npx wrangler dev --port {port}"
+        f"npx wrangler d1 migrations apply DB --local && npx wrangler dev --port {port}\n"
+        f"  export JARVIS_MINDMAP_URL=http://localhost:{port}/cortex"
     )
 
 

@@ -76,9 +76,10 @@ npx wrangler d1 migrations apply DB --remote
 local emulated DB instead, which is what plain `wrangler d1 migrations
 apply DB` without a flag does during `wrangler dev`.)
 
-If/when this gets wired to real Supabase data instead of the seeded demo
-leads (see the note in chat — nothing currently connects to Supabase), you'd
-skip or adjust `0002_seed.sql` accordingly before this step.
+If/when deploying without Supabase credentials, cortex will fail loudly
+(empty leads + error banner) rather than showing demo fixtures. Live
+`allLeads()` / metrics require `LUXE_SUPABASE_URL` + `LUXE_SUPABASE_SERVICE_KEY`
+in `.dev.vars` / Worker secrets. Do not point operators at root `dashboard/`.
 
 ## 6. Build
 

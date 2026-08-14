@@ -1,1 +1,1 @@
-{"name":"mission-jarvis","type":"module","dependencies":{"pg":"^8.12.0"},"scripts":{"start":"node server.mjs"}}
+{"name":"mission-jarvis-demo-only","type":"module","dependencies":{"pg":"^8.12.0"},"scripts":{"start":"node refuse-demo-start.mjs","serve-static":"echo 'DEMO ONLY — open public/index.html; NOT live Supabase. Live UI: luxe-cortex /cortex (JARVIS_MINDMAP_URL).'"}}

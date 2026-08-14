@@ -1,0 +1,24 @@
+[Unit]
+Description=LUXE Jarvis headless pipeline watcher (24/7)
+After=network.target luxe-worker.service
+Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+# install-vm.sh rewrites /opt/luxe-mstr-rebuild → actual REMOTE path and User=.
+
+[Service]
+Type=simple
+User=luxecortex
+Group=luxecortex
+WorkingDirectory=/opt/luxe-mstr-rebuild
+Environment=WATCH_INTERVAL_S=60
+# Optional: same env file as worker so SUPABASE_* resolves without printing secrets.
+EnvironmentFile=-/opt/luxe-mstr-rebuild/worker/.env
+EnvironmentFile=-/opt/luxe-mstr-rebuild/Jarvis-cortex/.env
+EnvironmentFile=-/home/ec2-user/luxe-worker/.env
+# Prefer scripts/watcher; pipeline_daemon.py is the same loop entrypoint.
+ExecStart=/usr/bin/python3 /opt/luxe-mstr-rebuild/scripts/jarvis_pipeline_watch.py
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target
