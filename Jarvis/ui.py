@@ -338,17 +338,29 @@ class _SysMetrics:
 
 _metrics = _SysMetrics()
 
-MIND_MAP_URL = os.environ.get("JARVIS_MINDMAP_URL", "http://localhost:4370")
+def _mindmap_url() -> str:
+    """luxe-cortex /cortex only — never root dashboard/ demo (mission-data.js)."""
+    raw = (os.environ.get("JARVIS_MINDMAP_URL") or "http://localhost:8787/cortex").strip()
+    low = raw.lower().replace("\\", "/")
+    if (
+        "mission-data" in low
+        or "/dashboard/public" in low
+        or low.rstrip("/").endswith("/dashboard")
+        or ("file:" in low and "dashboard" in low and "/cortex" not in low)
+    ):
+        print(f"[JARVIS] Refusing demo mindmap URL {raw!r} — using http://localhost:8787/cortex")
+        return "http://localhost:8787/cortex"
+    return raw or "http://localhost:8787/cortex"
+
+
+MIND_MAP_URL = _mindmap_url()
 
 
 class MindMapView(QWebEngineView):
-    """The talking 3D pipeline map — embeds the live Supabase-backed node graph
-    (../dashboard, Mission Jarvis's jarvis-space.js + live-data.mjs) as JARVIS's
-    main visual, replacing the painted waveform HUD. Same attribute surface as
-    HudCanvas (.state, .speaking, .muted, ._assistant_name) so MainWindow's
-    existing _apply_state()/_toggle_mute() code drives it without changes —
-    each setter below forwards into the page via the __jarvisBridge JS hook
-    dashboard/public/app.js exposes, instead of repainting locally."""
+    """The talking 3D pipeline map — embeds JARVIS CORTEX (../luxe-cortex
+    at /cortex, Supabase-backed + EventSource live push). Default
+    JARVIS_MINDMAP_URL is http://localhost:8787/cortex — NOT the root
+    dashboard/ demo (mission-data.js). Same attribute surface as HudCanvas."""
 
     def __init__(self, face_path: str, assistant_name: str = "J.A.R.V.I.S", parent=None):
         super().__init__(parent)
