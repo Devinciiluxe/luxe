@@ -319,8 +319,11 @@ def luxe_supabase(parameters: dict) -> str:
         if kind == "send_message":
             # Two gates: (1) pipeline must be ARMED via exact "GO FOR IT",
             # (2) this request must pass confirm_send. Otherwise always dry_run.
+            # Persist confirm_send on the job so the VM worker can re-check it
+            # (worker must not trust dry_run=false alone).
             armed = is_pipeline_armed()
             confirmed = bool(parameters.get("confirm_send"))
+            payload["confirm_send"] = confirmed
             payload["dry_run"] = not (armed and confirmed)
             if not payload.get("body") or not (payload.get("listing_id") or payload.get("thread_url")):
                 return "Sir, I need a listing or thread and a message body to draft outreach."
