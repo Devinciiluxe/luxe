@@ -68,9 +68,10 @@ export interface Metrics {
   pendingSends: number;
   won: number;
   noShows: number;
-  replyRate: number; // 0-1 last 30d
-  loadPct: number;   // radial dial
-  throttlePct: number;
+  /** Derived from Supabase lead counts — not host CPU. Label as HUD dial in UI. */
+  replyRate: number; // 0-1 from live lead stages
+  loadPct: number;
+  throttlePct: number; // settings.throttle_pct in Supabase
   hunterRunning: boolean;
   outreachRunning: boolean;
   autoReply: boolean;
@@ -79,8 +80,11 @@ export interface Metrics {
 export interface Snapshot {
   leads: Lead[];
   events: LogEvent[];
-  metrics: Metrics;
+  /** Null when Supabase is unreachable — never fabricate demo metrics. */
+  metrics: Metrics | null;
   activeLeadId: string | null;
+  /** Set when the snapshot could not be loaded from Supabase. */
+  error?: string | null;
 }
 
 // Live frames pushed over SSE to all open tabs.
