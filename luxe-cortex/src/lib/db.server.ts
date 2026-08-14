@@ -1,5 +1,6 @@
-// Server-only data access. Every function re-reads bindings (fresh per request),
-// so the same code runs against D1 on the platform and the local sqlite in dev.
+// Server-only data access. Leads, messages, activity, settings, and metrics
+// read/write Supabase (LUXE pipeline). Local D1 is used only for meetings
+// schema leftover — never as the source of pipeline KPIs or the node map.
 import { bindings } from "./bindings.server";
 import type { Lead, LogEvent, Metrics, Msg, Stage } from "./types";
 
@@ -48,8 +49,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
 
 // ---- Real leads live in Supabase (the actual pipeline, 5,000+ rows) — the
 // node map reads them live from there instead of a locally-synced copy, so
-// there's exactly one source of truth. Local D1 `leads` stays unused now;
-// messages/events/settings are unaffected and still run on D1. ----
+// there's exactly one source of truth. Local D1 `leads` stays unused;
+// messages / activity / settings also read-write Supabase (D1 is meetings only). ----
 
 const SUPABASE_STAGE_MAP: Record<string, Stage> = {
   new: "pending_outreach",
@@ -537,44 +538,14 @@ export async function bumpLeadScore(id: string, delta: number): Promise<number> 
   return next;
 }
 
-let idCounter = 0;
-function genId(prefix: string): string {
-  idCounter = (idCounter + 1) % 1296;
-  return `${prefix}-${crypto.randomUUID().slice(0, 8)}${idCounter.toString(36)}`;
-}
-
-const FIRST = ["Iris","Noel","Sana","Owen","Maya","Jonas","Petra","Ravi","Alba","Marcus","Lena","Theo","Dina","Carlos","June","Felix","Aria","Bram","Nia","Silas"];
-const LAST = ["Okafor","Reyes","Lindgren","Kaur","Meyer","Sato","Dubois","Novak","Costa","Ali","Beaumont","Fischer","Petrov","Nakamura","Iversen","Moreau","Halloran","Osei","Brandt","Vasquez"];
-const COMPANY_PRE = ["Atlas","Beacon","Harbor","Juniper","Copper","Summit","Signal","North","Vector","Ember","Granite","Cobalt","Willow","Meridian","Anchor","Ironclad","Foxglove","Hearth","Lakeside"];
-const COMPANY_SUF = ["Logistics","Dental","Legal","Media","Solar","Fitness","Realty","Coffee","Security","Games","Vet","Travel","Auto","Events","Beauty","Market","Trucking","Plumbing","Roofing","Chiro"];
-
-function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
-
-export async function createScrapedLead(source = "hunter"): Promise<Lead> {
-  const name = `${pick(FIRST)} ${pick(LAST)}`;
-  const company = `${pick(COMPANY_PRE)} ${pick(COMPANY_SUF)}`;
-  const value = (30 + Math.floor(Math.random() * 420)) * 1000;
-  const score = 35 + Math.floor(Math.random() * 55);
-  const side = Math.random() < 0.5 ? -1 : 1;
-  const theta = Math.random() * Math.PI * 2;
-  const rr = 0.35 + Math.random() * 0.3;
-  const nx = side * (0.08 + rr * Math.abs(Math.cos(theta)) * 0.9);
-  const ny = Math.max(-0.55, Math.min(0.6, rr * Math.sin(theta)));
-  const nz = (Math.random() - 0.5) * 1.1;
-  const id = genId("ld");
-  const lead: Lead = {
-    id, name, company,
-    handle: `@${name.toLowerCase().replace(/\s+/g, "")}`,
-    email: `${name.toLowerCase().split(" ")[0]}@${company.toLowerCase().replace(/\s+/g, "")}.com`,
-    channel: source, stage: "pending_outreach", value, score,
-    tags: [source === "hunter" ? "scraped" : "fresh"],
-    n: [nx, ny, nz], updatedAt: nowSec(),
-  };
-  await (await resolve())
-    .prepare("INSERT INTO leads (id, name, company, handle, email, channel, stage, value, score, tags, nx, ny, nz, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-    .bind(id, lead.name, lead.company, lead.handle, lead.email, source, "pending_outreach", value, score, JSON.stringify(lead.tags), nx, ny, nz, lead.updatedAt)
-    .run();
-  return lead;
+export async function createScrapedLead(_source = "hunter"): Promise<Lead> {
+  // Hard-blocked — previously invented leads with Math.random and INSERTed
+  // them into local D1 while allLeads() reads Supabase. Callers must queue
+  // scrape_listing / scrape_search browser_jobs instead.
+  throw new Error(
+    "createScrapedLead is disabled: no Math.random / fabricated D1 leads. " +
+      "Use scrape_listing or scrape_search jobs on the VM worker.",
+  );
 }
 
 export async function computeMetrics(): Promise<Metrics> {

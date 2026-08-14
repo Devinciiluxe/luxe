@@ -16,7 +16,6 @@ import {
   composeReply,
   generateProposalDoc,
   pauseAutomation,
-  runHunterSweep,
   bookSlot,
 } from "../../lib/jarvis.server";
 import { pushFrame } from "../../lib/broadcast.server";
@@ -84,8 +83,17 @@ export const Route = createFileRoute("/api/jarvis")({
             }
 
             case "run_hunter": {
-              const { lead, event } = await runHunterSweep();
-              return Response.json({ ok: true, lead, event });
+              // Hard-blocked: createScrapedLead invented Math.random leads into
+              // D1; allLeads() reads Supabase. Real intake is scrape_listing /
+              // scrape_search browser_jobs on the VM worker.
+              return Response.json(
+                {
+                  ok: false,
+                  error:
+                    "run_hunter is disabled — it fabricated leads. Queue a scrape_listing or scrape_search browser_job via luxe_supabase_REAL_PIPELINE instead.",
+                },
+                { status: 410 },
+              );
             }
 
             case "toggle_automation": {

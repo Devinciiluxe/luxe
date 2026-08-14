@@ -29,8 +29,16 @@ export const Route = createFileRoute("/cortex")({
   loader: async (): Promise<Snapshot> => {
     try {
       return await getSnapshot();
-    } catch {
-      return { leads: [], events: [], metrics: null as unknown as Snapshot["metrics"], activeLeadId: null };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Honest empty state — never swap in mission-data / D1 demo fixtures.
+      return {
+        leads: [],
+        events: [],
+        metrics: null,
+        activeLeadId: null,
+        error: msg || "Supabase unreachable",
+      };
     }
   },
   component: Dashboard,
@@ -42,6 +50,7 @@ function Dashboard() {
   const leads = c.leads.length ? c.leads : initial.leads ?? [];
   const events = c.events.length ? c.events : (initial.events ?? []);
   const metrics = c.metrics ?? initial.metrics ?? null;
+  const dataError = c.dataError ?? initial.error ?? null;
   const [cmdOpen, setCmdOpen] = useState(false);
   const [uptime, setUptime] = useState("00:00:00");
 
@@ -67,8 +76,9 @@ function Dashboard() {
     }
     switch (action.kind) {
       case "sweep":
-        void c.sweep();
-        voice.speak("Running the Lead Hunter now. New nodes will light up the cortex.");
+        voice.speak(
+          "Lead Hunter is disabled — it fabricated leads. Queue a scrape_listing or scrape_search job on the real pipeline instead.",
+        );
         return;
       case "propose":
         if (c.activeLeadId) {
@@ -82,11 +92,15 @@ function Dashboard() {
         return;
       case "pause":
         void c.toggle("hunter", false);
-        voice.speak("Pausing the Lead Hunter.");
+        voice.speak(
+          "Hunter UI flag paused — it does not invent leads. Real intake is scrape_listing jobs.",
+        );
         return;
       case "resume":
         void c.toggle("hunter", true);
-        voice.speak("Resuming the Lead Hunter.");
+        voice.speak(
+          "Hunter UI flag resumed — still no fabricated leads. Queue scrape_listing for real intake.",
+        );
         return;
       case "report": {
         const target = c.activeLeadId ?? c.openIds[0] ?? c.leads[0]?.id;
@@ -108,7 +122,7 @@ function Dashboard() {
           c.selectLead(c.leads[0].id);
           voice.speak("Opening your first thread.");
         } else {
-          voice.speak("No nodes on the cortex yet. Try running the Lead Hunter.");
+          voice.speak("No nodes on the cortex yet. Queue a scrape_search or scrape_listing job on the real pipeline.");
         }
       }
     }
@@ -210,6 +224,16 @@ function Dashboard() {
   return (
     <div className="flex h-dvh flex-col">
       <Header onCommand={() => setCmdOpen(true)} uptime={uptime} />
+      {dataError ? (
+        <div
+          role="alert"
+          className="relative z-40 mx-2 mt-2 rounded border border-[#ff6b6b]/50 bg-[#7a1f1f]/90 px-3 py-2 font-mono text-[11px] leading-snug tracking-wide text-[#ffe8e8]"
+        >
+          SUPABASE ERROR — not connected to live data
+          {leads.length || metrics ? " · numbers on screen may be STALE (last successful fetch)" : " · showing empty state (no demo fixtures)"}
+          <div className="mt-1 text-[10px] text-[#ffb4b4]/90">{dataError}</div>
+        </div>
+      ) : null}
 
       <div className="mt-2 grid min-h-0 flex-1 grid-cols-1 gap-2 px-2 lg:grid-cols-[280px_minmax(0,1fr)_300px]">
         <aside className="glass hud-frame order-2 hidden min-h-0 flex-col lg:order-1 lg:flex h-full">
@@ -221,17 +245,17 @@ function Dashboard() {
           <div className="pointer-events-none absolute left-3 top-3 z-10 select-none">
             <span className="hud-title">Neural cortex</span>
             <div className="font-mono text-[9px] text-[#5c6b78]">
-              {metrics?.activeNodes ?? leads.length} active nodes · click node → floating thread · mic (right) → voice
+              {metrics?.activeNodes ?? leads.length} active nodes · Supabase-backed · click node → floating thread
             </div>
             <div className="mt-2 flex items-center gap-1.5 font-mono text-[8.5px] tracking-[0.14em]">
+              <span className="chip chip-cyan">LIVE · SUPABASE</span>
               <span className="chip chip-cyan">CORTEX v6</span>
               <span className={`chip ${c.thinking ? "chip-magenta pulse" : "chip-cyan"}`}>
                 WORKING_JOBS {c.thinking ? "· ACTIVE" : "· IDLE"}
               </span>
-              <span className="text-[#5c6b78]">— lights when Jarvis replies</span>
             </div>
             <div className="mt-1.5 font-mono text-[8.5px] tracking-[0.14em] text-[#5c6b78]">
-              {c.openIds.length} thread{c.openIds.length === 1 ? "" : "s"} open
+              {c.openIds.length} thread{c.openIds.length === 1 ? "" : "s"} open · not the root dashboard demo
             </div>
           </div>
 

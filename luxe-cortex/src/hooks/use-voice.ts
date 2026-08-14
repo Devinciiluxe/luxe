@@ -159,7 +159,10 @@ export function parseCommand(text: string): VoiceAction {
   const t = text.toLowerCase();
   const pick = /(open|show|pull up|talk to|message)\s+(.+)/.exec(text);
   if (/propose|proposal|send a proposal/.test(t)) return { kind: "propose" };
-  if (/run (the )?hunter|start (the )?(hunter|sweep)|hunt|sweep|new (leads?|nodes?)/.test(t)) return { kind: "sweep" };
+  // Fabricated Math.random hunter is disabled — do not map voice to sweep.
+  if (/run (the )?hunter|start (the )?(hunter|sweep)|hunt|sweep|new (leads?|nodes?)/.test(t)) {
+    return { kind: "chat", text: "Lead Hunter is disabled. Queue scrape_listing via the real pipeline." };
+  }
   if (/no[- ]?show|ghost/.test(t)) return { kind: "noshows" };
   if (/report|status|metrics|how.*(doing|pipeline)|numbers/.test(t)) return { kind: "report" };
   if (/\bpause\b/.test(t) && /hunter|hunt/.test(t)) return { kind: "pause" };

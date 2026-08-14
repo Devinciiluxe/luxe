@@ -5,7 +5,6 @@ import {
   availableSlots,
   bookMeeting,
   bumpLeadScore,
-  createScrapedLead,
   findMeetingByStart,
   getLead,
   hasOverlap,
@@ -168,26 +167,13 @@ export async function composeReply(lead: Lead, userText: string): Promise<Msg> {
 }
 
 export async function runHunterSweep(): Promise<{ lead: Lead; event: LogEvent }> {
-  const lead = await createScrapedLead("hunter");
-  const fit = 12 + Math.floor(Math.random() * 40);
-  const event = await insertEvent({
-    kind: "scrape",
-    icon: "lead",
-    text: `Hunter: ${fit} fit profiles surfaced ${lead.company} as a new node`,
-    datum: String(fit),
-  });
-  await insertMessage({
-    id: uid("m"),
-    leadId: lead.id,
-    role: "jarvis",
-    kind: "automation",
-    body: `Hunter sweep: ${fit} public profiles indexed around ${lead.company}. Added as a pending-outreach node at score ${lead.score}.`,
-    badge: "SCRAPED",
-  });
-  await emit({ type: "newLead", lead });
-  await emit({ type: "event", event });
-  await emit({ type: "metrics", metrics: await computeMetrics() });
-  return { lead, event };
+  // Hard-blocked. createScrapedLead() used Math.random names/scores and wrote
+  // into a path that looked "live" — real leads come from scrape_listing /
+  // scrape_search jobs on the Lightpanda worker → Supabase.
+  throw new Error(
+    "run_hunter is disabled: fabricated Math.random leads are not live data. " +
+      "Queue scrape_listing or scrape_search via the browser_jobs worker.",
+  );
 }
 
 export async function pauseAutomation(which: "hunter" | "outreach", on: boolean) {
