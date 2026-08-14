@@ -1,5 +1,7 @@
 # Credentials - never commit these
 config/api_keys.json
+config/pipeline_live.armed
+config/pipeline_daemon.heartbeat
 .env
 *.env
 
