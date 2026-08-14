@@ -11,8 +11,8 @@ User=luxecortex
 Group=luxecortex
 WorkingDirectory=/opt/luxe-mstr-rebuild/worker
 EnvironmentFile=/opt/luxe-mstr-rebuild/worker/.env
-# Dry-run stays default until operator arms with GO FOR IT + LUXE_PIPELINE_LIVE=1.
-# Do NOT set LUXE_PIPELINE_LIVE=1 here by default.
+# Dry-run stays default until Jarvis arms via GO FOR IT (settings.pipeline_live).
+# Do NOT set LUXE_PIPELINE_LIVE=1 here — that env override skips the phrase gate.
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=5

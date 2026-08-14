@@ -154,13 +154,29 @@ def disarm_pipeline() -> None:
 
 
 def utterance_contains_arm_phrase(text: str) -> bool:
-    """Spoken path: three contiguous words 'go for it' (STT case-tolerant)."""
+    """Spoken path: standalone 'go for it' (STT case-tolerant).
+
+    Rejects negation / embedding ("don't go for it", "should we go for it?").
+    Exact ARM_PHRASE substring still matches for typed ALL-CAPS.
+    """
     if not text:
         return False
-    if ARM_PHRASE in text:
+    if text.strip() == ARM_PHRASE or text.strip().upper() == ARM_PHRASE:
         return True
+    import re
+
     lowered = " ".join(text.lower().split())
-    return "go for it" in lowered
+    # Leading negation: don't / do not / never / not going to …
+    if re.search(r"\b(don'?t|do not|never|not)\b.{0,24}\bgo\s+for\s+it\b", lowered):
+        return False
+    # Interrogative / hedging: should we / maybe / if we …
+    if re.search(r"\b(should|could|would|maybe|might|if)\b.{0,24}\bgo\s+for\s+it\b", lowered):
+        return False
+    # Whole utterance is essentially just the three words (optional punctuation).
+    if re.fullmatch(r"go\s+for\s+it[.!?]?", lowered):
+        return True
+    # Or the three words as their own sentence clause.
+    return bool(re.search(r"(?:^|[.!?]\s+)go\s+for\s+it(?:[.!?]|$)", lowered))
 
 
 def arm_from_phrase(phrase: str) -> bool:
@@ -170,7 +186,52 @@ def arm_from_phrase(phrase: str) -> bool:
     goes through utterance_contains_arm_phrase + arm_pipeline in the session
     loop, not this function.
     """
+    # #region agent log
+    try:
+        import time as _t
+        _p = Path("/Users/devinci/luxe-mstr-rebuild/.cursor/debug-78349c.log")
+        _exact = phrase == ARM_PHRASE
+        _p.parent.mkdir(parents=True, exist_ok=True)
+        with _p.open("a", encoding="utf-8") as _f:
+            _f.write(json.dumps({
+                "sessionId": "78349c",
+                "runId": "arm-go-for-it",
+                "hypothesisId": "H1",
+                "location": "pipeline_arm.py:arm_from_phrase",
+                "message": "arm_from_phrase invoked",
+                "data": {
+                    "phrase_len": len(phrase or ""),
+                    "exact_match": _exact,
+                    "contains_lower": "go for it" in " ".join((phrase or "").lower().split()),
+                },
+                "timestamp": int(_t.time() * 1000),
+            }) + "\n")
+    except Exception:
+        pass
+    # #endregion
     if phrase == ARM_PHRASE:
         arm_pipeline()
+        # #region agent log
+        try:
+            import time as _t
+            _armed = is_pipeline_armed()
+            _p = Path("/Users/devinci/luxe-mstr-rebuild/.cursor/debug-78349c.log")
+            with _p.open("a", encoding="utf-8") as _f:
+                _f.write(json.dumps({
+                    "sessionId": "78349c",
+                    "runId": "arm-go-for-it",
+                    "hypothesisId": "H2",
+                    "location": "pipeline_arm.py:arm_from_phrase:after",
+                    "message": "arm_pipeline completed",
+                    "data": {
+                        "local_armed_file": _STATE_PATH.is_file(),
+                        "is_pipeline_armed": _armed,
+                        "settings_armed": _settings_armed(),
+                    },
+                    "timestamp": int(_t.time() * 1000),
+                }) + "\n")
+        except Exception:
+            pass
+        # #endregion
         return True
     return False

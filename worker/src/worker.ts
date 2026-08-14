@@ -81,9 +81,9 @@ type AirbnbSite = { tld: "ca" | "com"; origin: string };
 
 function airbnbSiteFromCookies(cookies: { domain?: string; name?: string }[] | null | undefined): AirbnbSite {
   const list = cookies ?? [];
-  const jwtDom = list.find((c) => c.name === "_jwt")?.domain ?? "";
-  const domains = [jwtDom, ...list.map((c) => String(c.domain ?? ""))];
-  if (domains.some((d) => /airbnb\.ca/i.test(d))) {
+  // Site must follow `_jwt` only — leftover .ca cookies must not override a .com JWT.
+  const jwtDom = String(list.find((c) => c.name === "_jwt")?.domain ?? "");
+  if (/airbnb\.ca/i.test(jwtDom)) {
     return { tld: "ca", origin: "https://www.airbnb.ca" };
   }
   return { tld: "com", origin: "https://www.airbnb.com" };
@@ -844,6 +844,17 @@ async function isPipelineLive(): Promise<boolean> {
   return false;
 }
 
+/** Live send requires armed gate AND per-DM confirm_send on the job payload. */
+export function shouldForceDryRun(
+  payload: { dry_run?: boolean; confirm_send?: boolean } | null | undefined,
+  pipelineLive: boolean,
+): { force: boolean; reason: string } {
+  if (payload?.dry_run) return { force: false, reason: "already_dry_run" };
+  if (!pipelineLive) return { force: true, reason: "not_armed" };
+  if (payload?.confirm_send !== true) return { force: true, reason: "missing_confirm_send" };
+  return { force: false, reason: "armed_and_confirmed" };
+}
+
 async function finishJob(id: string, ok: boolean, result: any, error = "", kind = ""): Promise<void> {
   await db.from("browser_jobs").update({
     status: ok ? "done" : "failed",
@@ -878,10 +889,36 @@ async function main(): Promise<void> {
     const handler = HANDLERS[job.kind];
     if (!handler) { await finishJob(job.id, false, {}, `unknown kind: ${job.kind}`, job.kind); continue; }
 
-    // Refuse live sends unless env or settings.pipeline_live (Jarvis "GO FOR IT").
-    if (job.kind === "send_message" && !job.payload?.dry_run) {
-      if (!(await isPipelineLive())) {
-        console.warn(`[worker] forcing dry_run on ${job.id} — arm via GO FOR IT or LUXE_PIPELINE_LIVE=1`);
+    // Refuse live sends unless ARMED (GO FOR IT) AND payload.confirm_send === true.
+    if (job.kind === "send_message") {
+      const live = await isPipelineLive();
+      const gate = shouldForceDryRun(job.payload, live);
+      // #region agent log
+      fetch("http://127.0.0.1:7687/ingest/7583fa93-c9ec-4be9-8fd7-aa5e00972f8e", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "78349c" },
+        body: JSON.stringify({
+          sessionId: "78349c",
+          runId: "confirm-send-gate",
+          hypothesisId: "H-confirm",
+          location: "worker.ts:send_message_gate",
+          message: "send_message dry_run gate",
+          data: {
+            jobIdPrefix: String(job.id || "").slice(0, 18),
+            pipelineLive: live,
+            payloadDryRun: Boolean(job.payload?.dry_run),
+            confirmSend: job.payload?.confirm_send === true,
+            force: gate.force,
+            reason: gate.reason,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      if (gate.force) {
+        console.warn(
+          `[worker] forcing dry_run on ${job.id} — ${gate.reason} (need GO FOR IT + confirm_send=true)`,
+        );
         job.payload = { ...(job.payload ?? {}), dry_run: true };
       }
     }
@@ -907,7 +944,10 @@ async function main(): Promise<void> {
         await finishJob(job.id, false, {}, msg, job.kind);
         // Do not auto-queue session_refresh when Lightpanda cannot log in
         // (cookie push required) — that was the session_refresh death spiral.
-        const needsCookiePush = /cookie_push|missing email|_jwt|no valid session|login form/i.test(msg);
+        const needsCookiePush =
+          /cookie_push|missing email|_jwt|no valid session|login form|session likely expired|composer not found|login did not stick|post-login|captcha/i.test(
+            msg,
+          );
         if (/session|login|composer/.test(msg) && !needsCookiePush) {
           await db.from("browser_jobs").insert({
             id: `bj_session_${crypto.randomUUID().replaceAll("-", "")}`,

@@ -38,7 +38,9 @@ HEARTBEAT = Path(
         str(ROOT / "Jarvis-cortex" / "config" / "pipeline_daemon.heartbeat"),
     )
 )
-AUTO_REFRESH = os.environ.get("JARVIS_WATCH_AUTO_REFRESH", "1").strip() not in (
+# Default OFF — auto session_refresh flooded jobs when cookies were dead.
+# Set JARVIS_WATCH_AUTO_REFRESH=1 only after cookie push is proven.
+AUTO_REFRESH = os.environ.get("JARVIS_WATCH_AUTO_REFRESH", "0").strip() not in (
     "0",
     "false",
     "FALSE",
