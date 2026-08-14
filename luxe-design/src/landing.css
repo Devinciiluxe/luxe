@@ -1,0 +1,559 @@
+@import url("/fonts/fonts.css");
+
+/* LUXEdesign — golden-hour dark luxury. Warm near-black canvas, champagne gold
+ * accent, ivory ink. The scrub journey is the hero; these styles dress the
+ * fixed nav, strengthen the chapter scrims over bright footage, and carry the
+ * post-journey content (packages, process, booking, footer). */
+
+:root {
+  --lx-bg: #0b0a08;
+  --lx-bg-soft: #12100d;
+  --lx-ink: #f4eee2;
+  --lx-muted: #c4b8a4;
+  --lx-gold: #d8b36a;
+  --lx-pale-gold: #ead9b0;
+  --lx-line: rgba(216, 179, 106, 0.16);
+  --lx-serif:
+    "Cormorant Garamond", "Playfair Display", Didot, "Bodoni MT", Georgia,
+    serif;
+  --lx-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+html {
+  background: var(--lx-bg);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--lx-bg);
+  color: var(--lx-ink);
+  font-family: var(--lx-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.005em;
+}
+
+.luxe {
+  position: relative;
+}
+
+/* -- Fixed nav ------------------------------------------------------------ */
+
+.luxe-nav {
+  position: fixed;
+  inset: calc(clamp(0.9rem, 2vw, 1.5rem)) 0 auto;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 clamp(1.25rem, 5vw, 3.5rem);
+  pointer-events: none;
+}
+
+.luxe-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--lx-ink);
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.luxe-brand-mark {
+  display: block;
+  width: 9px;
+  height: 9px;
+  background: var(--lx-gold);
+  rotate: 45deg;
+  box-shadow: 0 0 14px rgba(216, 179, 106, 0.55);
+}
+
+.luxe-brand-word {
+  font-family: var(--lx-serif);
+  font-size: 1.28rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.luxe-brand-word em {
+  color: var(--lx-gold);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.luxe-nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 2.4vw, 2rem);
+  pointer-events: auto;
+}
+
+.luxe-nav-links a {
+  color: var(--lx-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+  text-shadow: 0 1px 14px rgba(5, 4, 3, 0.8);
+  transition: color 0.25s ease;
+}
+
+.luxe-nav-links a:hover,
+.luxe-nav-links a:focus-visible {
+  color: var(--lx-ink);
+}
+
+.luxe-nav-links .luxe-nav-cta {
+  padding: 0.62em 1.15em;
+  border: 1px solid var(--lx-line);
+  color: var(--lx-pale-gold);
+  background: rgba(11, 10, 8, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.luxe-nav-links .luxe-nav-cta:hover,
+.luxe-nav-links .luxe-nav-cta:focus-visible {
+  border-color: rgba(216, 179, 106, 0.5);
+  color: var(--lx-ink);
+  background: rgba(216, 179, 106, 0.08);
+}
+
+/* -- Journey layer tuning -------------------------------------------------
+ * The footage is golden-hour. The scrims stay nearly invisible so the copy
+ * floats almost free on the image — just enough legibility glow behind the
+ * text block, never a card or hard edge, consistent with the "barely there"
+ * instruction. */
+
+.scroll-scrub__copy::before {
+  inset: -2.5rem -3rem;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--ss-bg) 46%, transparent) 0%,
+    color-mix(in srgb, var(--ss-bg) 22%, transparent) 48%,
+    transparent 72%
+  );
+}
+
+.scroll-scrub__copy::after {
+  display: none;
+}
+
+.scroll-scrub__kicker {
+  color: var(--lx-pale-gold);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-shadow: 0 1px 12px rgba(5, 4, 3, 0.7);
+}
+
+.scroll-scrub__title {
+  color: var(--lx-ink);
+  font-family: var(--lx-serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 28px rgba(5, 4, 3, 0.55);
+}
+
+.scroll-scrub__body {
+  color: color-mix(in srgb, var(--lx-ink) 88%, transparent);
+  text-shadow: 0 1px 16px rgba(5, 4, 3, 0.75);
+}
+
+.scroll-scrub__tags li {
+  border-color: var(--lx-line);
+  color: var(--lx-ink);
+  background: rgba(11, 10, 8, 0.35);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.scroll-scrub__route-button {
+  color: color-mix(in srgb, var(--lx-muted) 85%, transparent);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 12px rgba(5, 4, 3, 0.8);
+}
+
+.scroll-scrub__route-button:hover,
+.scroll-scrub__route-button[aria-current="step"] {
+  color: var(--lx-ink);
+  text-decoration-color: var(--lx-gold);
+}
+
+.scroll-scrub__progress span {
+  background: var(--lx-gold);
+  box-shadow: 0 0 10px rgba(216, 179, 106, 0.5);
+}
+
+/* -- After the journey ------------------------------------------------------- */
+
+.luxe-after {
+  position: relative;
+  z-index: 8;
+  background:
+    linear-gradient(to bottom, transparent 0%, var(--lx-bg) 240px),
+    var(--lx-bg);
+}
+
+.luxe-after > section {
+  padding: clamp(5.5rem, 11vw, 10rem) clamp(1.25rem, 6vw, 6rem);
+}
+
+.luxe-kicker {
+  margin: 0 0 1.1rem;
+  color: var(--lx-gold);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.luxe-h2 {
+  margin: 0;
+  max-width: 20ch;
+  font-family: var(--lx-serif);
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+}
+
+.luxe-h2 em {
+  color: var(--lx-gold);
+  font-style: italic;
+}
+
+.luxe-lede {
+  max-width: 52ch;
+  margin: 1.6rem 0 0;
+  color: var(--lx-muted);
+  font-size: clamp(1rem, 1.3vw, 1.15rem);
+  line-height: 1.65;
+}
+
+/* Packages */
+
+.luxe-packages {
+  max-width: 84rem;
+  margin: 0 auto;
+}
+
+.luxe-tier-grid {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 3.5rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.luxe-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.75rem 1.9rem;
+  border: 1px solid var(--lx-line);
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--lx-bg-soft) 90%, transparent),
+    color-mix(in srgb, var(--lx-bg) 65%, transparent)
+  );
+}
+
+.luxe-tier--featured {
+  border-color: color-mix(in srgb, var(--lx-gold) 45%, transparent);
+  background: linear-gradient(
+    170deg,
+    rgba(216, 179, 106, 0.07),
+    color-mix(in srgb, var(--lx-bg-soft) 88%, transparent)
+  );
+}
+
+.luxe-tier-flag {
+  position: absolute;
+  top: -0.72em;
+  left: 1.6rem;
+  margin: 0;
+  padding: 0.3em 0.85em;
+  background: var(--lx-gold);
+  color: #16140f;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.luxe-tier-name {
+  margin: 0;
+  color: var(--lx-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.luxe-tier-price {
+  margin: 0.7rem 0 0;
+  font-family: var(--lx-serif);
+  font-size: clamp(2.6rem, 3.6vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.luxe-tier-price span {
+  color: var(--lx-muted);
+  font-family: var(--lx-sans);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.luxe-tier-size {
+  margin: 0.55rem 0 0;
+  color: var(--lx-gold);
+  font-size: 0.88rem;
+  font-style: italic;
+  font-family: var(--lx-serif);
+}
+
+.luxe-tier ul {
+  display: grid;
+  gap: 0.72rem;
+  margin: 1.6rem 0 2rem;
+  padding: 1.4rem 0 0;
+  border-top: 1px solid var(--lx-line);
+  list-style: none;
+}
+
+.luxe-tier li {
+  position: relative;
+  padding-left: 1.3rem;
+  color: color-mix(in srgb, var(--lx-ink) 82%, transparent);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.luxe-tier li::before {
+  position: absolute;
+  left: 0;
+  top: 0.52em;
+  width: 6px;
+  height: 6px;
+  content: "";
+  background: var(--lx-gold);
+  rotate: 45deg;
+}
+
+.luxe-btn {
+  display: inline-block;
+  margin-top: auto;
+  padding: 0.95em 1.6em;
+  border: 1px solid color-mix(in srgb, var(--lx-gold) 40%, transparent);
+  color: var(--lx-pale-gold);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.luxe-btn:hover,
+.luxe-btn:focus-visible {
+  border-color: var(--lx-gold);
+  background: rgba(216, 179, 106, 0.1);
+  color: var(--lx-ink);
+}
+
+.luxe-btn--gold {
+  border-color: var(--lx-gold);
+  background: var(--lx-gold);
+  color: #16140f;
+}
+
+.luxe-btn--gold:hover,
+.luxe-btn--gold:focus-visible {
+  background: var(--lx-pale-gold);
+  border-color: var(--lx-pale-gold);
+  color: #16140f;
+}
+
+.luxe-btn--big {
+  padding: 1.15em 2.2em;
+  font-size: 0.8rem;
+}
+
+.luxe-note {
+  margin: 2.4rem 0 0;
+  color: var(--lx-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  font-family: var(--lx-serif);
+}
+
+/* Process */
+
+.luxe-process {
+  max-width: 84rem;
+  margin: 0 auto;
+}
+
+.luxe-steps {
+  display: grid;
+  gap: 2.5rem;
+  margin: 3.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  grid-template-columns: repeat(4, 1fr);
+  counter-reset: step;
+}
+
+.luxe-steps li {
+  position: relative;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--lx-line);
+}
+
+.luxe-step-n {
+  position: absolute;
+  top: -0.68em;
+  left: 0;
+  padding-right: 0.6rem;
+  background: var(--lx-bg);
+  color: var(--lx-gold);
+  font-family: var(--lx-serif);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.luxe-steps h3 {
+  margin: 0;
+  font-family: var(--lx-serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.luxe-steps p {
+  margin: 0.7rem 0 0;
+  color: var(--lx-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* Booking */
+
+.luxe-book {
+  position: relative;
+  max-width: 84rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.luxe-book .luxe-h2,
+.luxe-book .luxe-lede {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.luxe-book .luxe-kicker {
+  text-align: center;
+}
+
+.luxe-book-actions {
+  display: grid;
+  gap: 1.4rem;
+  margin-top: 3rem;
+  justify-items: center;
+}
+
+.luxe-book-fine {
+  margin: 0;
+  color: var(--lx-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Footer */
+
+.luxe-footer {
+  padding: 3.5rem clamp(1.25rem, 6vw, 6rem) 4rem;
+  border-top: 1px solid var(--lx-line);
+  text-align: center;
+}
+
+.luxe-footer-brand {
+  margin: 0;
+  font-family: var(--lx-serif);
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+}
+
+.luxe-footer-brand em {
+  color: var(--lx-gold);
+  font-style: italic;
+}
+
+.luxe-footer-line {
+  margin: 0.8rem 0 0;
+  color: var(--lx-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+  font-family: var(--lx-serif);
+}
+
+.luxe-footer-legal {
+  margin: 1.8rem 0 0;
+  color: color-mix(in srgb, var(--lx-muted) 62%, transparent);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* -- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .luxe-tier-grid,
+  .luxe-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .luxe-tier {
+    max-width: 34rem;
+  }
+
+  .luxe-nav-links a:not(.luxe-nav-cta) {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .scroll-scrub__copy::before {
+    inset: -2.5rem -1.5rem;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--ss-bg) 78%, transparent) 0%,
+      color-mix(in srgb, var(--ss-bg) 46%, transparent) 52%,
+      transparent 88%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxe-btn,
+  .luxe-nav-links a {
+    transition: none;
+  }
+}

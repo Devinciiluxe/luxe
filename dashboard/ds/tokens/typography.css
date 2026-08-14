@@ -1,0 +1,37 @@
+:root{
+  /* fluid display scale — site/index.html */
+  --t-hero:clamp(46px,7.6vw,104px); /* @kind font */
+  --t-h2:clamp(30px,4.3vw,54px); /* @kind font */
+  --t-h3:clamp(20px,2.1vw,25px); /* @kind font */
+  --t-lede:clamp(16px,1.35vw,19px); /* @kind font */
+  --t-body:16px; /* @kind font */
+  --t-cap:13.5px; /* @kind font */
+  --t-lab:10px; /* @kind font */
+
+  /* HUD scale — luxe-dashboard. Small, monospaced, wide-tracked. */
+  --t-hud-xl:14px; /* @kind font */
+  --t-hud-l:12.5px; /* @kind font */
+  --t-hud-m:11px; /* @kind font */
+  --t-hud-s:10px; /* @kind font */
+  --t-hud-xs:9px; /* @kind font */
+  --t-hud-xxs:8.5px; /* @kind font */
+
+  --lh-display:.98; /* @kind font */
+  --lh-tight:1.2; /* @kind font */
+  --lh-body:1.68; /* @kind font */
+  --lh-hud:1.45; /* @kind font */
+
+  --track-display:-.02em; /* @kind font */
+  --track-body:.004em; /* @kind font */
+  --track-hud:.10em; /* @kind font */
+  --track-label:.26em; /* @kind font */
+  --track-rupture:.34em; /* @kind font */
+
+  --weight-light:300; /* @kind font */
+  --weight-regular:400; /* @kind font */
+  --weight-medium:500; /* @kind font */
+  --weight-semi:600; /* @kind font */
+
+  --measure:62ch; /* @kind spacing */
+  --measure-lede:52ch; /* @kind spacing */
+}

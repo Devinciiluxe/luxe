@@ -1,0 +1,28 @@
+:root{
+  --dur-tap:.15s; /* @kind other */
+  --dur-ui:.28s; /* @kind other */
+  --dur-reveal:.5s; /* @kind other */
+  --dur-grade:.9s; /* @kind other */
+  --ease-ui:cubic-bezier(.2,.7,.2,1); /* @kind other */
+  --ease-inout:ease-in-out; /* @kind other */
+  --pulse:lx-pulse 1.2s ease-in-out infinite; /* @kind other */
+  --breathe:lx-breathe 2.2s ease-in-out infinite; /* @kind other */
+  --breathe-fast:lx-breathe 1.9s ease-in-out infinite; /* @kind other */
+  --spin:lx-spin .9s linear infinite; /* @kind other */
+  --drift:lx-drift 34s ease-in-out infinite alternate; /* @kind other */
+  --swirl:lx-swirl 26s linear infinite; /* @kind other */
+  --swirl-fast:lx-swirl 9s linear infinite; /* @kind other */
+  --orbit:lx-orbit 18s linear infinite; /* @kind other */
+}
+@keyframes lx-pulse{0%,100%{opacity:.42}50%{opacity:1}}
+@keyframes lx-breathe{0%,100%{opacity:.30}50%{opacity:.85}}
+@keyframes lx-spin{to{transform:rotate(360deg)}}
+@keyframes lx-swirl{to{transform:rotate(360deg)}}
+@keyframes lx-swirl-rev{to{transform:rotate(-360deg)}}
+@keyframes lx-orbit{to{transform:rotate(360deg)}}
+@keyframes lx-drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(16%,7%,0)}}
+@keyframes lx-scan{0%{transform:translateY(-100%)}100%{transform:translateY(900%)}}
+@keyframes lx-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes lx-wave{0%,100%{transform:scaleY(.22)}50%{transform:scaleY(1)}}
+@keyframes lx-dash{to{stroke-dashoffset:-64}}
+@media (prefers-reduced-motion:reduce){*{animation:none !important}}

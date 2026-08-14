@@ -1,0 +1,17 @@
+[Unit]
+Description=luxe-cortex (JARVIS CORTEX dashboard)
+After=network.target
+Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+
+[Service]
+Type=simple
+User=luxecortex
+Group=luxecortex
+WorkingDirectory=/opt/luxe-mstr-rebuild/luxe-cortex
+EnvironmentFile=-/opt/luxe-mstr-rebuild/luxe-cortex/.dev.vars
+ExecStart=/opt/luxe-mstr-rebuild/luxe-cortex/node_modules/.bin/wrangler dev --ip 127.0.0.1 --port 8787 --persist-to /opt/luxe-mstr-rebuild/luxe-cortex/.wrangler/state
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

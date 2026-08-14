@@ -1,0 +1,34 @@
+# Credentials - never commit these
+.env
+*.env
+!.env.example
+**/config/api_keys.json
+**/.dev.vars
+
+# Private keys / certificates - never commit these
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+**/certs/
+
+# Dependencies
+node_modules/
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# OS / editor state
+.DS_Store
+
+# Local source backups
+*.bak-*
+
+# Backup snapshots (contain old secrets / nested repos) and runtime logs
+backups/
+logs/

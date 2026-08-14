@@ -1,0 +1,36 @@
+/* Holographic node recipes — the Mission Jarvis surface.
+   A node is five stacked layers: halo bloom, glass rim, conic swirl, dust
+   field, and core. Everything keys off --node-hue so one property re-tints a
+   whole node. Defaults to the live cyan. */
+/* Hue-dependent recipes are declared BOTH at :root and under [data-holo].
+   var() inside a custom property resolves where the property is DECLARED, so
+   to re-tint in plain HTML add data-holo to the element that sets --node-hue:
+   <div data-holo style="--node-hue:247,181,79"> … var(--node-core) … </div>
+   (The React NodeSphere builds its gradients in JS and needs none of this.) */
+:root,[data-holo]{
+  --node-hue:52,224,208; /* @kind other */
+
+  --node-core:radial-gradient(circle at 38% 32%,rgba(255,255,255,.92) 0%,rgba(var(--node-hue),.75) 18%,rgba(var(--node-hue),.28) 42%,rgba(8,9,11,.86) 76%); /* @kind other */
+  --node-rim:radial-gradient(circle at 50% 50%,transparent 58%,rgba(var(--node-hue),.30) 82%,rgba(var(--node-hue),.62) 92%,transparent 97%); /* @kind other */
+  --node-swirl:conic-gradient(from 0deg,transparent 0deg,rgba(var(--node-hue),.50) 34deg,transparent 92deg,rgba(120,110,255,.42) 158deg,transparent 214deg,rgba(198,164,105,.34) 292deg,transparent 352deg); /* @kind other */
+  --node-swirl-inner:conic-gradient(from 180deg,transparent 0deg,rgba(255,255,255,.30) 26deg,transparent 74deg,rgba(var(--node-hue),.44) 190deg,transparent 250deg); /* @kind other */
+  --node-halo:radial-gradient(circle at 50% 50%,rgba(var(--node-hue),.34) 0%,rgba(var(--node-hue),.10) 44%,transparent 72%); /* @kind other */
+  --node-shadow:0 0 34px rgba(var(--node-hue),.42), 0 0 90px rgba(var(--node-hue),.16), inset 0 0 26px rgba(var(--node-hue),.20); /* @kind shadow */
+  --node-shadow-idle:0 0 14px rgba(var(--node-hue),.14), inset 0 0 16px rgba(var(--node-hue),.08); /* @kind shadow */
+
+  /* 26 specks of space dust — a fixed field so nodes read as detailed, not noisy */
+  --node-dust:radial-gradient(1.1px 1.1px at 22% 26%,rgba(255,255,255,.95),transparent),radial-gradient(1px 1px at 68% 18%,rgba(var(--node-hue),.95),transparent),radial-gradient(1.4px 1.4px at 44% 62%,rgba(255,255,255,.75),transparent),radial-gradient(.9px .9px at 78% 54%,rgba(255,255,255,.85),transparent),radial-gradient(1.2px 1.2px at 30% 74%,rgba(var(--node-hue),.85),transparent),radial-gradient(1px 1px at 58% 84%,rgba(255,255,255,.7),transparent),radial-gradient(.8px .8px at 14% 52%,rgba(255,255,255,.6),transparent),radial-gradient(1.3px 1.3px at 86% 34%,rgba(var(--node-hue),.7),transparent),radial-gradient(1px 1px at 52% 40%,rgba(255,255,255,.9),transparent),radial-gradient(.9px .9px at 36% 14%,rgba(255,255,255,.55),transparent),radial-gradient(1.1px 1.1px at 72% 72%,rgba(198,164,105,.8),transparent),radial-gradient(.8px .8px at 24% 42%,rgba(120,110,255,.8),transparent),radial-gradient(1px 1px at 62% 28%,rgba(255,255,255,.65),transparent),radial-gradient(1.2px 1.2px at 40% 88%,rgba(var(--node-hue),.6),transparent),radial-gradient(.9px .9px at 82% 66%,rgba(255,255,255,.7),transparent),radial-gradient(1px 1px at 18% 66%,rgba(198,164,105,.6),transparent),radial-gradient(.8px .8px at 50% 12%,rgba(255,255,255,.8),transparent),radial-gradient(1.1px 1.1px at 66% 46%,rgba(120,110,255,.6),transparent),radial-gradient(.9px .9px at 32% 34%,rgba(255,255,255,.5),transparent),radial-gradient(1px 1px at 76% 24%,rgba(255,255,255,.6),transparent),radial-gradient(1.3px 1.3px at 46% 52%,rgba(var(--node-hue),.5),transparent),radial-gradient(.8px .8px at 28% 58%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 88% 48%,rgba(255,255,255,.5),transparent),radial-gradient(.9px .9px at 56% 66%,rgba(198,164,105,.5),transparent),radial-gradient(1.1px 1.1px at 12% 36%,rgba(var(--node-hue),.45),transparent),radial-gradient(.8px .8px at 70% 88%,rgba(255,255,255,.4),transparent); /* @kind other */
+
+  /* deep space behind the map */
+  --space-field:radial-gradient(1200px 800px at 50% 42%,rgba(52,224,208,.055),transparent 62%),radial-gradient(900px 700px at 78% 12%,rgba(120,110,255,.05),transparent 60%),radial-gradient(700px 600px at 14% 84%,rgba(198,164,105,.035),transparent 62%),var(--ground); /* @kind other */
+  --space-stars:radial-gradient(1px 1px at 12% 18%,rgba(255,255,255,.55),transparent),radial-gradient(1px 1px at 34% 62%,rgba(255,255,255,.4),transparent),radial-gradient(1.2px 1.2px at 58% 22%,rgba(255,255,255,.5),transparent),radial-gradient(1px 1px at 76% 74%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 88% 38%,rgba(255,255,255,.45),transparent),radial-gradient(1px 1px at 22% 88%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 64% 48%,rgba(255,255,255,.28),transparent),radial-gradient(1.1px 1.1px at 44% 8%,rgba(255,255,255,.4),transparent); /* @kind other */
+
+  /* link geometry between nodes */
+  --link-idle:rgba(147,160,166,.22); /* @kind color */
+  --link-live:rgba(52,224,208,.72); /* @kind color */
+  --link-ai:rgba(120,110,255,.62); /* @kind color */
+
+  /* glass HUD plate */
+  --holo-plate:linear-gradient(180deg,rgba(232,234,237,.05),rgba(232,234,237,.015)); /* @kind other */
+  --holo-plate-b:1px solid rgba(52,224,208,.18); /* @kind other */
+}

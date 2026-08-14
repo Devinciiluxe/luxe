@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mission Jarvis — LUXE Studio</title>
+<link rel="stylesheet" href="styles.css">
+<script src="mission-data.js"></script>
+<script src="jarvis-space.js"></script>
+<style>
+  html,body{margin:0;height:100%;background:#08090B;overflow:hidden}
+  body{font-family:var(--font-mono);color:var(--text-hud)}
+  a{color:#34E0D0;text-decoration:none}a:hover{color:#9DF3EA}
+  input,button{font-family:inherit}
+  button{cursor:pointer}
+  ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:rgba(52,224,208,.22);border-radius:3px}::-webkit-scrollbar-track{background:transparent}
+  @keyframes mj-caret{0%,100%{opacity:0}50%{opacity:1}}
+  @keyframes mj-sweep{to{transform:rotate(360deg)}}
+  @keyframes mj-bootbar{from{width:0}to{width:100%}}
+  @keyframes mj-scanline{0%{top:-8%}100%{top:108%}}
+  .pill{font:500 9px/1 var(--font-mono);letter-spacing:.16em;padding:6px 11px;white-space:nowrap;border-radius:99px;border:1px solid var(--border-card);background:var(--panel);color:var(--text-hud-dim)}
+  .pill.cyan{border-color:var(--cyan-b);background:var(--cyan-tint);color:var(--cyan-lift)}
+  .pill.red{border-color:var(--red-b);background:var(--red-tint);color:var(--red)}
+  .kpi{padding:5px 11px;border:1px solid var(--border-card);border-radius:7px;background:var(--panel)}
+  .kpi .l{font:400 8.5px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-hud-mute)}
+  .kpi .v{font:500 14px/1 var(--font-mono);font-variant-numeric:tabular-nums;margin-top:4px}
+  .qrow{display:flex;gap:7px;align-items:center;padding:5px 7px;border:1px solid var(--border-hairline);border-radius:5px;background:var(--panel)}
+  .qbtn{font:500 8px/1 var(--font-mono);letter-spacing:.08em;padding:4px 6px;border-radius:4px;border:1px solid var(--cyan-b);background:transparent;color:var(--cyan-lift)}
+  .qbtn.h{border-color:var(--amber-b);color:var(--amber)}
+  .cmdbox{flex:1;min-width:160px;font:400 11px/1 var(--font-mono);letter-spacing:.02em;padding:0 14px;height:30px;border-radius:99px;border:1px solid var(--border-panel);background:var(--panel);color:var(--text-hud);outline:none}
+  .cmdbox::placeholder{color:var(--text-hud-mute)}
+  .cmdbox:focus{border-color:var(--cyan-b);box-shadow:0 0 0 1px var(--cyan-b)}
+</style>
+</head>
+<body>
+<div id="app" style="position:fixed;inset:0;background:var(--ground);overflow:hidden">
+  <jarvis-space id="space" style="position:absolute;inset:0;width:100%;height:100%"></jarvis-space>
+  <div style="position:absolute;inset:0;z-index:9;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 3px);mix-blend-mode:overlay"></div>
+  <div style="position:absolute;inset:0;z-index:9;pointer-events:none;box-shadow:inset 0 0 220px rgba(1,2,3,.85)"></div>
+
+  <header style="position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:16px;padding:9px 18px;background:rgba(10,12,14,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--border-panel)">
+    <div style="display:flex;align-items:center;gap:11px;flex:none">
+      <div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(145deg,var(--brass),#8A6A3F);box-shadow:0 0 18px rgba(198,164,105,.55)"></div>
+      <div>
+        <div style="font:700 12.5px/1 var(--font-mono);letter-spacing:.18em">LUXE STUDIO</div>
+        <div style="font:400 9px/1 var(--font-mono);letter-spacing:.16em;color:var(--text-hud-mute);margin-top:2px">MISSION JARVIS</div>
+      </div>
+    </div>
+    <div style="width:1px;height:26px;background:var(--hair);flex:none"></div>
+    <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <i style="width:6px;height:6px;border-radius:99px;background:var(--cyan);box-shadow:var(--glow-dot);animation:var(--pulse)"></i>
+      <span id="sysline" style="font:500 10px/1 var(--font-mono);letter-spacing:.18em;color:var(--text-hud-dim)">SYSTEM ONLINE // MISSION JARVIS v3.7</span>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:7px">
+      <div class="kpi"><div class="l">IN PIPELINE</div><div class="v" id="kPipe"></div></div>
+      <div class="kpi" style="border-color:var(--cyan-b);background:var(--cyan-tint);box-shadow:0 0 16px rgba(52,224,208,.14)"><div class="l" style="color:rgba(157,243,234,.7)">RENDERING</div><div class="v" id="kRend" style="color:var(--cyan-lift)"></div></div>
+      <div class="kpi" style="border-color:var(--amber-b);background:var(--amber-tint)"><div class="l" style="color:rgba(247,181,79,.75)">NEEDS YOU</div><div class="v" id="kNeed" style="color:var(--amber)"></div></div>
+      <div class="kpi" style="border-color:var(--brass-b);background:var(--brass-tint)"><div class="l" style="color:rgba(198,164,105,.8)">MTD</div><div class="v" id="kMtd" style="color:var(--brass-lift)"></div></div>
+      <div style="width:1px;height:26px;background:var(--hair)"></div>
+      <span id="clock" style="font:500 12px/1 var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.08em;color:var(--text-hud-dim);min-width:64px;text-align:right"></span>
+    </div>
+  </header>
+
+  <aside style="position:absolute;left:0;top:51px;bottom:0;width:234px;z-index:12;display:flex;flex-direction:column;gap:13px;padding:13px 13px 16px;background:rgba(8,9,11,.5);border-right:1px solid var(--border-panel);overflow-y:auto">
+    <div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><i style="width:5px;height:5px;border-radius:99px;background:var(--cyan);box-shadow:var(--glow-dot)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.18em;color:rgba(232,234,237,.72)">AGENTS</span></div>
+      <div id="agents" style="display:flex;flex-direction:column;gap:7px"></div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.06);flex:none"></div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="display:flex;align-items:center;gap:7px"><i style="width:5px;height:5px;border-radius:99px;background:var(--cyan);box-shadow:var(--glow-dot);animation:var(--pulse)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.18em;color:rgba(232,234,237,.72);white-space:nowrap">OUTBOX · SEND QUEUE</span></div>
+      </div>
+      <div id="obLine" style="display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums"></div>
+      <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin:7px 0 10px;overflow:hidden"><div id="obBar" style="height:100%;width:0;border-radius:2px;background:linear-gradient(90deg,rgba(52,224,208,.5),var(--cyan));box-shadow:0 0 10px rgba(52,224,208,.5)"></div></div>
+      <div id="obQ" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.06);flex:none"></div>
+    <div style="flex:1;min-height:120px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="display:flex;align-items:center;gap:7px"><i style="width:5px;height:5px;border-radius:99px;background:var(--violet);box-shadow:0 0 9px var(--violet)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.18em;color:rgba(232,234,237,.72)">LIVE ACTIVITY</span></div>
+        <button id="huntBtn" class="qbtn" title="Trigger lead hunt">HUNT ▸</button>
+      </div>
+      <div id="feed" style="display:flex;flex-direction:column;gap:2px"></div>
+    </div>
+  </aside>
+
+  <div style="position:absolute;left:250px;bottom:16px;z-index:12;width:148px;pointer-events:none">
+    <div style="position:relative;width:148px;height:148px;border-radius:50%;border:1px solid rgba(52,224,208,.25);background:radial-gradient(circle,rgba(52,224,208,.05),rgba(8,9,11,.55) 70%);overflow:hidden">
+      <div style="position:absolute;inset:24px;border-radius:50%;border:1px solid rgba(52,224,208,.12)"></div>
+      <div style="position:absolute;inset:50px;border-radius:50%;border:1px solid rgba(52,224,208,.1)"></div>
+      <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(52,224,208,.1)"></div>
+      <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(52,224,208,.1)"></div>
+      <div style="position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(52,224,208,.3),transparent 55deg);animation:mj-sweep 4.2s linear infinite"></div>
+      <div id="radar" style="position:absolute;inset:0"></div>
+      <span style="position:absolute;top:4px;left:50%;transform:translateX(-50%);font:400 8px/1 var(--font-mono);color:rgba(52,224,208,.6)">N</span>
+      <span style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font:400 8px/1 var(--font-mono);color:rgba(52,224,208,.35)">S</span>
+    </div>
+    <div id="camline" style="margin-top:7px;text-align:center;font:400 8.5px/1.5 var(--font-mono);letter-spacing:.1em;color:var(--text-hud-mute);font-variant-numeric:tabular-nums"></div>
+  </div>
+
+  <!-- Connector from a selected conversation node's live screen position to
+       the expanded thread panel — makes the panel read as anchored to that
+       node in 3D space rather than a disconnected flat UI element. Updated
+       every frame in app.js's frame(). -->
+  <svg id="anchorSvg" style="position:absolute;inset:0;z-index:14;pointer-events:none;width:100%;height:100%">
+    <line id="anchorLine" x1="0" y1="0" x2="0" y2="0" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="2,5" opacity="0" style="transition:opacity .3s"/>
+    <circle id="anchorDot" cx="0" cy="0" r="4" fill="var(--cyan)" opacity="0" style="filter:drop-shadow(0 0 6px var(--cyan));transition:opacity .3s"/>
+  </svg>
+  <div id="insp" style="position:absolute;left:0;top:0;z-index:15;will-change:transform;display:none"></div>
+  <aside id="threadPanel" style="position:absolute;right:14px;top:63px;bottom:86px;width:364px;z-index:16;display:none;flex-direction:column;background:rgba(10,12,14,.7);backdrop-filter:blur(14px);border:1px solid var(--border-panel);border-radius:11px;overflow:hidden;box-shadow:0 0 40px rgba(52,224,208,.07)"></aside>
+
+  <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:18;width:min(700px,58vw);display:flex;flex-direction:column;gap:8px;align-items:center">
+    <div style="display:flex;gap:7px;width:100%">
+      <input id="cmdInput" class="cmdbox" placeholder="ask jarvis — lead gen status, pending replies, hold that send…" autocomplete="off">
+      <button id="sitrepBtn" class="pill cyan">SITREP</button>
+      <button id="pauseBtn" class="pill">PAUSE</button>
+      <button id="resetBtn" class="pill">RESET VIEW</button>
+      <button id="micBtn" class="pill">◉ PUSH TO TALK</button>
+      <button id="audioBtn" class="pill">AUDIO OFF</button>
+    </div>
+    <div id="bar" style="width:100%;display:flex;align-items:center;gap:13px;padding:10px 16px 10px 12px;border-radius:99px;border:1px solid var(--border-panel);background:var(--holo-plate);backdrop-filter:blur(14px);transition:box-shadow .28s,border-color .28s">
+      <span style="display:inline-flex;align-items:center;gap:8px;flex:none"><i id="barDot" style="width:7px;height:7px;border-radius:99px;background:var(--violet);box-shadow:0 0 10px var(--violet)"></i><span style="font:500 var(--t-hud-s)/1 var(--font-mono);letter-spacing:.14em;color:var(--violet-lift)">JARVIS</span></span>
+      <span id="wave" style="display:inline-flex;align-items:flex-end;gap:2px;height:16px;flex:none" aria-hidden="true"></span>
+      <span style="flex:1;min-width:0;font:400 var(--t-hud-m)/1.5 var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span id="say"></span><i style="display:inline-block;width:6px;height:11px;background:var(--violet-lift);margin-left:2px;vertical-align:-1px;animation:mj-caret 1s step-end infinite"></i></span>
+      <span id="tag" style="flex:none;display:none;font:400 var(--t-hud-xxs)/1 var(--font-mono);letter-spacing:.14em;padding:3px 7px;border-radius:var(--r-xs);background:var(--violet-tint);border:1px solid var(--violet-b);color:var(--violet-lift);text-transform:uppercase;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis"></span>
+    </div>
+  </div>
+
+  <div style="position:absolute;right:16px;bottom:16px;z-index:12;text-align:right;pointer-events:none">
+    <div id="corner" style="font:400 8.5px/1.6 var(--font-mono);letter-spacing:.12em;color:var(--text-hud-mute);font-variant-numeric:tabular-nums"></div>
+    <div id="srcline" style="font:400 8.5px/1.6 var(--font-mono);letter-spacing:.12em;color:rgba(52,224,208,.4)">CONNECTING…</div>
+  </div>
+  <i style="position:absolute;top:59px;left:242px;width:16px;height:16px;border-top:1px solid rgba(52,224,208,.3);border-left:1px solid rgba(52,224,208,.3);z-index:11;pointer-events:none"></i>
+  <i style="position:absolute;top:59px;right:8px;width:16px;height:16px;border-top:1px solid rgba(52,224,208,.3);border-right:1px solid rgba(52,224,208,.3);z-index:11;pointer-events:none"></i>
+  <i style="position:absolute;bottom:8px;right:8px;width:16px;height:16px;border-bottom:1px solid rgba(52,224,208,.3);border-right:1px solid rgba(52,224,208,.3);z-index:11;pointer-events:none"></i>
+
+  <div id="boot" style="position:absolute;inset:0;z-index:40;background:var(--ground);display:flex;align-items:center;justify-content:center;overflow:hidden">
+    <div style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(52,224,208,.5),transparent);animation:mj-scanline 2.6s ease-in-out infinite"></div>
+    <div style="width:min(420px,80vw);display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:12px;animation:lx-rise .5s var(--ease-ui) .1s both">
+        <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(145deg,var(--brass),#8A6A3F);box-shadow:0 0 22px rgba(198,164,105,.6)"></div>
+        <div><div style="font:700 13px/1 var(--font-mono);letter-spacing:.2em">LUXE STUDIO</div><div style="font:400 9px/1 var(--font-mono);letter-spacing:.18em;color:var(--text-hud-mute);margin-top:3px">MISSION JARVIS v3.7</div></div>
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,var(--brass-b),transparent);animation:lx-rise .5s var(--ease-ui) .3s both"></div>
+      <div style="font:400 10px/1.9 var(--font-mono);letter-spacing:.08em;color:var(--text-hud-dim)">
+        <div style="animation:lx-rise .4s var(--ease-ui) .5s both">neural map · loading node field <span style="color:var(--cyan)">ok</span></div>
+        <div style="animation:lx-rise .4s var(--ease-ui) .9s both">agents · 5 online <span style="color:var(--cyan)">ok</span></div>
+        <div style="animation:lx-rise .4s var(--ease-ui) 1.3s both">outbox · 20 queued · 0 failed <span style="color:var(--cyan)">ok</span></div>
+        <div style="animation:lx-rise .4s var(--ease-ui) 1.7s both">voice · standing by <span style="color:var(--violet-lift)">armed</span></div>
+      </div>
+      <div style="height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;animation:lx-rise .4s var(--ease-ui) .4s both"><div style="height:100%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);animation:mj-bootbar 2.5s var(--ease-ui) .4s both"></div></div>
+      <div style="font:400 9px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-hud-mute);animation:lx-rise .4s var(--ease-ui) 2s both">systems initializing · click anywhere to enable voice + audio</div>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

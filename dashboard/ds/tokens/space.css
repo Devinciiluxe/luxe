@@ -1,0 +1,34 @@
+:root{
+  /* HUD spacing — the dashboard is dense: 3/5/7/9 before it reaches 12 */
+  --s-1:3px; /* @kind spacing */
+  --s-2:5px; /* @kind spacing */
+  --s-3:7px; /* @kind spacing */
+  --s-4:9px; /* @kind spacing */
+  --s-5:12px; /* @kind spacing */
+  --s-6:14px; /* @kind spacing */
+  --s-7:18px; /* @kind spacing */
+  --s-8:24px; /* @kind spacing */
+  --s-9:32px; /* @kind spacing */
+  --s-10:44px; /* @kind spacing */
+
+  /* editorial rhythm — the marketing surface breathes */
+  --band-y:clamp(88px,14vh,168px); /* @kind spacing */
+  --gutter:104px; /* @kind spacing */
+  --inner-max:1120px; /* @kind spacing */
+  --inner-x:clamp(24px,5vw,72px); /* @kind spacing */
+  --col-gap:clamp(24px,4vw,56px); /* @kind spacing */
+
+  /* radii — HUD chrome is soft-square, pills are full */
+  --r-xs:4px; /* @kind radius */
+  --r-s:5px; /* @kind radius */
+  --r-m:7px; /* @kind radius */
+  --r-l:9px; /* @kind radius */
+  --r-xl:11px; /* @kind radius */
+  --r-2xl:14px; /* @kind radius */
+  --r-pill:99px; /* @kind radius */
+
+  /* fixed chrome */
+  --rail-conv:260px; /* @kind spacing */
+  --rail-side:224px; /* @kind spacing */
+  --header-h:48px; /* @kind spacing */
+}

@@ -1,0 +1,1 @@
+{"name":"mission-jarvis","type":"module","dependencies":{"pg":"^8.12.0"},"scripts":{"start":"node server.mjs"}}

@@ -1,0 +1,17 @@
+# Credentials - never commit these
+config/api_keys.json
+.env
+*.env
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Local editor / tooling state
+.claude/
+.DS_Store
+
+# Local source backups
+*.bak-*

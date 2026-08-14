@@ -1,0 +1,16 @@
+[Unit]
+Description=Lightpanda CDP (Airbnb browser for LUXE worker)
+After=network.target
+Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+
+[Service]
+Type=simple
+User=luxecortex
+Group=luxecortex
+ExecStart=/usr/local/bin/lightpanda serve --host 127.0.0.1 --port 9222
+Restart=on-failure
+RestartSec=3
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

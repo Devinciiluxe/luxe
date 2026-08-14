@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check public/app.js)",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('public/index.html','utf8'\\).includes\\('cmdInput'\\) && console.log\\('index.html has cmdInput'\\)\")"
+    ]
+  }
+}

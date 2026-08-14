@@ -1,0 +1,80 @@
+/* Base palette — every hex below is lifted verbatim from LUXE-MASTR.
+   Ground/bone/brass: luxe-design/site/index.html :root.
+   HUD accents: luxe-dashboard/src/app/globals.css :root.
+   Violet: the second radial in globals.css .app (rgba(120,110,255,.07)). */
+:root{
+  /* ground */
+  --ink:#070B0E;
+  --ground:#08090B;
+  --black-cut:#010203;
+  --slate:#0E1A21;
+  --slate-lift:#16262F;
+  --card:#0D1013;
+
+  /* bone — warm off-white biased to the brass */
+  --bone:#E8E4DC;
+  --bone-soft:#C3C4C0;
+  --bone-dim:#93A0A6;
+  --hud-ink:#E8EAED;
+
+  /* brass — the house accent */
+  --brass:#C6A469;
+  --brass-lift:#DCC08C;
+  --brass-deep:#6E5A38;
+
+  /* HUD signal colours */
+  --cyan:#34E0D0;
+  --cyan-lift:#9DF3EA;
+  --amber:#F7B54F;
+  --red:#FF6B6B;
+  --violet:#786EFF;
+  --violet-lift:#B7B0FF;
+
+  /* tints + borders (alpha derivatives, straight from globals.css) */
+  --cyan-tint:rgba(52,224,208,.10);
+  --cyan-b:rgba(52,224,208,.35);
+  --amber-tint:rgba(247,181,79,.10);
+  --amber-b:rgba(247,181,79,.45);
+  --red-tint:rgba(255,107,107,.10);
+  --red-b:rgba(255,107,107,.50);
+  --brass-tint:rgba(198,164,105,.10);
+  --brass-b:rgba(198,164,105,.38);
+  --violet-tint:rgba(120,110,255,.12);
+  --violet-b:rgba(120,110,255,.42);
+
+  --panel:rgba(255,255,255,.022);
+  --panel-b:rgba(255,255,255,.07);
+  --card-b:rgba(255,255,255,.06);
+  --hair:rgba(147,160,166,.16);
+  --hair-soft:rgba(147,160,166,.09);
+
+  /* ——— semantic aliases ——— */
+  --surface-ground:var(--ground);
+  --surface-page:var(--ink);
+  --surface-band:var(--slate);
+  --surface-panel:var(--panel);
+  --surface-card:var(--card);
+  --surface-lift:var(--slate-lift);
+  --border-hairline:var(--hair-soft);
+  --border-panel:var(--panel-b);
+  --border-card:var(--card-b);
+
+  --text-display:var(--bone);
+  --text-body:var(--bone-soft);
+  --text-muted:var(--bone-dim);
+  --text-hud:var(--hud-ink);
+  --text-hud-dim:rgba(232,234,237,.55);
+  --text-hud-mute:rgba(232,234,237,.38);
+  --text-accent:var(--brass);
+  --text-live:var(--cyan-lift);
+  --link:var(--brass);
+  --link-hover:var(--brass-lift);
+
+  /* pipeline / node states — one colour per machine state */
+  --state-live:var(--cyan);        /* processing, jarvis speaking, worker busy */
+  --state-attention:var(--amber);  /* human gate, needs you */
+  --state-stuck:var(--red);        /* failed, stale > 72h */
+  --state-ai:var(--violet);        /* autonomous agent, model reasoning */
+  --state-value:var(--brass);      /* money, delivered, luxe tier */
+  --state-idle:rgba(147,160,166,.42);
+}

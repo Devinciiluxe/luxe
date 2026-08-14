@@ -1,0 +1,165 @@
+{
+  "exported_at": "2026-08-14T07:15:15.661908+00:00",
+  "source": "https://vbswmotdtyqakzuzkqui.supabase.co",
+  "summary": {
+    "inbox_sync_jobs": 4,
+    "inbox_sync_done": 0,
+    "inbox_sync_failed": 4,
+    "inbox_sync_success_rate_pct": 0.0,
+    "inbox_sync_messages": 0,
+    "unique_threads": 0,
+    "duplicate_threads": 0,
+    "threads_found_sum": 0,
+    "synced_claimed_sum": 0,
+    "unlinked_lead_messages": 0,
+    "send_message_jobs": 2,
+    "outbound_verified": 0,
+    "outbound_dry_run": 2,
+    "outbound_unverified": 0,
+    "airbnb_leads_sampled": 0,
+    "pipeline_leads_sampled": 5065,
+    "session": {
+      "status": "active",
+      "error_count": 0,
+      "last_used_at": "1970-01-01T00:00:00.000Z",
+      "platform": "airbnb",
+      "id": 1,
+      "total_sessions": 6
+    }
+  },
+  "inbox_job_status": {
+    "failed": 4
+  },
+  "send_job_status": {
+    "failed": 2
+  },
+  "status_chart": [
+    {
+      "status": "failed",
+      "count": 4
+    }
+  ],
+  "daily_messages": [],
+  "failed_jobs": [
+    {
+      "id": "bj_3df4022e24a24938b62752e40bc0d4e9",
+      "status": "failed",
+      "error": "no valid session \u2014 queue session_refresh",
+      "attempts": 1,
+      "created_at": "2026-08-13T21:43:05.920205+00:00",
+      "done_at": "2026-08-13T21:43:15.088+00:00"
+    },
+    {
+      "id": "bj_e340728b8b6a45d7969073f7621093f0",
+      "status": "failed",
+      "error": "no valid session \u2014 queue session_refresh",
+      "attempts": 1,
+      "created_at": "2026-08-13T17:28:06.446+00:00",
+      "done_at": "2026-08-13T17:28:18.33+00:00"
+    },
+    {
+      "id": "bj_d98a34defa8e409887170de008fef0a4",
+      "status": "failed",
+      "error": "no valid session \u2014 queue session_refresh",
+      "attempts": 1,
+      "created_at": "2026-08-13T05:24:53.903+00:00",
+      "done_at": "2026-08-13T05:25:01.913+00:00"
+    },
+    {
+      "id": "bj_healthcheck_10653ad7aa8b4e0d9a8d024f31ee0996",
+      "status": "failed",
+      "error": "Lightpanda /json/new failed: 404",
+      "attempts": 3,
+      "created_at": "2026-08-10T19:13:39.866+00:00",
+      "done_at": "2026-08-11T01:28:16.382+00:00"
+    }
+  ],
+  "job_gaps": [],
+  "duplicates": [],
+  "unlinked_leads": [],
+  "outbound_jobs": [
+    {
+      "id": "bj_c6a8ed9fefdf4eb39bbc101235f0a977",
+      "status": "failed",
+      "dry_run": true,
+      "verified": false,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-13T21:04:30.701262+00:00",
+      "done_at": "2026-08-13T23:40:43.105+00:00"
+    },
+    {
+      "id": "bj_000d8fa9565d411886f14b1af57f5ba6",
+      "status": "failed",
+      "dry_run": true,
+      "verified": false,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-13T17:54:25.415+00:00",
+      "done_at": "2026-08-13T17:54:34.959+00:00"
+    }
+  ],
+  "airbnb_leads_by_status": {},
+  "leads_by_status": {
+    "new": 4503,
+    "contacted": 542,
+    "replied": 19,
+    "lost": 1
+  },
+  "leads_by_track": {
+    "str": 4731,
+    "str_manager": 198,
+    "resale": 115,
+    "resale_brokerage": 21
+  },
+  "leads_by_source_platform": {
+    "rental_site": 4863,
+    "mgmt_site": 63,
+    "website": 30,
+    "brokerage": 61,
+    "villa_directory": 14,
+    "zillow": 22,
+    "(null)": 12
+  },
+  "callouts": [
+    "4 inbox_sync job(s) failed \u2014 check worker session / Lightpanda.",
+    "platform_sessions.last_used_at is epoch (1970) \u2014 cookies may never have been used by the worker.",
+    "inbox_sync jobs exist but zero messages were recorded \u2014 no Airbnb inbox data reached the CRM."
+  ],
+  "recent_inbox_jobs": [
+    {
+      "id": "bj_3df4022e24a24938b62752e40bc0d4e9",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-13T21:43:05.920205+00:00",
+      "done_at": "2026-08-13T21:43:15.088+00:00"
+    },
+    {
+      "id": "bj_e340728b8b6a45d7969073f7621093f0",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-13T17:28:06.446+00:00",
+      "done_at": "2026-08-13T17:28:18.33+00:00"
+    },
+    {
+      "id": "bj_d98a34defa8e409887170de008fef0a4",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-13T05:24:53.903+00:00",
+      "done_at": "2026-08-13T05:25:01.913+00:00"
+    },
+    {
+      "id": "bj_healthcheck_10653ad7aa8b4e0d9a8d024f31ee0996",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "Lightpanda /json/new failed: 404",
+      "created_at": "2026-08-10T19:13:39.866+00:00",
+      "done_at": "2026-08-11T01:28:16.382+00:00"
+    }
+  ]
+}

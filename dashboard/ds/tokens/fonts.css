@@ -1,0 +1,12 @@
+/* Webfonts. Source repo loads all three from Google (no binaries are vendored
+   anywhere in LUXE-MASTR): site/index.html links Instrument Serif + Hanken
+   Grotesk + IBM Plex Mono; luxe-dashboard/src/app/layout.tsx loads Fraunces +
+   IBM Plex Mono via next/font. We standardise display on Instrument Serif —
+   see readme.md "Fonts". */
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap");
+
+:root{
+  --font-display:"Instrument Serif","Didot","Bodoni 72","Hoefler Text",Garamond,"Times New Roman",serif;
+  --font-body:"Hanken Grotesk","Avenir Next",Avenir,"Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}

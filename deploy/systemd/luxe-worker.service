@@ -1,0 +1,19 @@
+[Unit]
+Description=LUXE Airbnb browser_jobs worker
+After=network.target luxe-lightpanda.service
+Requires=luxe-lightpanda.service
+Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+
+[Service]
+Type=simple
+User=luxecortex
+Group=luxecortex
+WorkingDirectory=/opt/luxe-mstr-rebuild/worker
+EnvironmentFile=/opt/luxe-mstr-rebuild/worker/.env
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+# Polls Supabase; no inbound ports.
+
+[Install]
+WantedBy=multi-user.target

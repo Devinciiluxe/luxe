@@ -1,0 +1,15 @@
+{
+  "name": "@higgsfield/quanta",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./button": "./src/button.tsx",
+    "./not-found": "./src/not-found.tsx",
+    "./icon": "./src/icon.ts"
+  },
+  "scripts": {
+    "typecheck": "echo skip"
+  }
+}
