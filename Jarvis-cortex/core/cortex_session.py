@@ -170,88 +170,196 @@ def _play_mp3(audio_bytes: bytes) -> None:
             pass
 
 
+_PCM_RATE = 24_000   # EdgeTTS mp3 is 24 kHz mono; decoded PCM keeps that rate
+
+
+def _decode_mp3_pcm(mp3: bytes) -> "bytes | None":
+    """Decode MP3 bytes → raw s16le mono 24 kHz PCM via PyAV.
+
+    Returns None when PyAV is unavailable or the payload doesn't decode —
+    the caller falls back to afplay for that sentence.
+    """
+    try:
+        import io
+
+        import av
+        out = bytearray()
+        with av.open(io.BytesIO(mp3)) as container:
+            resampler = av.AudioResampler(format="s16", layout="mono", rate=_PCM_RATE)
+            for frame in container.decode(audio=0):
+                for rf in resampler.resample(frame):
+                    out.extend(bytes(rf.planes[0]))
+            for rf in resampler.resample(None):     # flush resampler tail
+                out.extend(bytes(rf.planes[0]))
+        return bytes(out) if out else None
+    except Exception as e:
+        print(f"[CortexTTS] PCM decode failed ({e}) — falling back to afplay")
+        return None
+
+
 # ── Streaming TTS pipeline ───────────────────────────────────────────────────────
 
 class _TTS:
     """
-    Three-thread pipeline: sentence source → synth → play.
-    Synthesis of sentence N+1 overlaps with playback of sentence N.
-    afplay process is tracked so barge-in can kill it instantly.
+    Pipelined sentence speech: source → parallel synth → one persistent
+    PCM output stream.
+
+    Sentences synthesize up to _LOOKAHEAD ahead, _SYNTH_WORKERS at a time,
+    while earlier ones play — EdgeTTS network latency hides behind playback
+    instead of surfacing as dead air between sentences. Decoded PCM is
+    written to a single sounddevice output stream held open for the whole
+    reply, so there is no per-sentence afplay spawn / device-open gap.
+    afplay remains as a per-sentence fallback when PyAV cannot decode.
     """
+
+    _LOOKAHEAD     = 4     # synthesized sentences allowed ahead of playback
+    _SYNTH_WORKERS = 3
+    _WRITE_SLICE   = int(_PCM_RATE * 0.2) * 2   # 200 ms of s16 mono per write — barge-in granularity
 
     def __init__(self):
         self._stop        = threading.Event()
         self._play_proc:  "subprocess.Popen | None" = None
+        self._out_stream  = None
         self._proc_lock   = threading.Lock()
 
     def run(self, sentence_iter, on_start=None, on_done=None) -> None:
         """Blocking. Consumes sentence_iter, speaks all sentences, then returns."""
-        self._stop.clear()
-        audio_q: "queue.Queue" = queue.Queue(maxsize=3)
+        from concurrent.futures import ThreadPoolExecutor
 
-        def _synth_worker():
-            first = True
-            for sentence in sentence_iter:
-                if self._stop.is_set():
-                    break
-                text = _strip_md(sentence)
-                if not text:
-                    continue
-                try:
-                    mp3 = _synth_to_mp3(text)
+        self._stop.clear()
+        fut_q: "queue.Queue" = queue.Queue(maxsize=self._LOOKAHEAD)
+        pool = ThreadPoolExecutor(
+            max_workers=self._SYNTH_WORKERS, thread_name_prefix="tts-synth"
+        )
+
+        def _submit_worker():
+            # Ordered hand-off: futures enter fut_q in sentence order; the
+            # player waits on each in turn, so parallel synth never reorders
+            # speech. All queue ops use timeouts so stop() can never deadlock
+            # a full/empty queue.
+            try:
+                for sentence in sentence_iter:
+                    if self._stop.is_set():
+                        break
+                    text = _strip_md(sentence)
+                    if not text:
+                        continue
+                    fut = pool.submit(_synth_to_mp3, text)
+                    while not self._stop.is_set():
+                        try:
+                            fut_q.put(fut, timeout=0.25)
+                            break
+                        except queue.Full:
+                            continue
+            finally:
+                while True:
+                    try:
+                        fut_q.put(_SENTINEL, timeout=0.25)
+                        break
+                    except queue.Full:
+                        if self._stop.is_set():
+                            break   # player exits on stop without the sentinel
+
+        def _play_worker():
+            stream = None
+            first  = True
+            try:
+                while True:
+                    try:
+                        item = fut_q.get(timeout=0.25)
+                    except queue.Empty:
+                        if self._stop.is_set():
+                            break
+                        continue
+                    if item is _SENTINEL or self._stop.is_set():
+                        break
+                    try:
+                        mp3 = item.result()
+                    except Exception as e:
+                        print(f"[CortexTTS] Synth error: {e}")
+                        continue
                     if self._stop.is_set():
                         break
                     if first and on_start:
                         on_start()
                         first = False
-                    audio_q.put(mp3)
-                except Exception as e:
-                    print(f"[CortexTTS] Synth error: {e}")
-            audio_q.put(_SENTINEL)
-
-        def _play_worker():
-            while True:
-                item = audio_q.get()
-                if item is _SENTINEL or self._stop.is_set():
-                    break
-                try:
-                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-                        f.write(item)
-                        tmp = f.name
-                    proc = subprocess.Popen(["afplay", tmp])
-                    with self._proc_lock:
-                        self._play_proc = proc
-                    proc.wait()
-                    with self._proc_lock:
-                        self._play_proc = None
-                    import os as _os
+                    pcm = _decode_mp3_pcm(mp3)
+                    if pcm is None:
+                        self._play_afplay(mp3)
+                        continue
+                    if stream is None:
+                        stream = sd.RawOutputStream(
+                            samplerate=_PCM_RATE, channels=1, dtype="int16",
+                        )
+                        stream.start()
+                        with self._proc_lock:
+                            self._out_stream = stream
+                    for i in range(0, len(pcm), self._WRITE_SLICE):
+                        if self._stop.is_set():
+                            break
+                        try:
+                            stream.write(pcm[i:i + self._WRITE_SLICE])
+                        except Exception:
+                            break   # stream aborted by stop() mid-write
+            finally:
+                with self._proc_lock:
+                    self._out_stream = None
+                if stream is not None:
                     try:
-                        _os.unlink(tmp)
+                        if self._stop.is_set():
+                            stream.abort()      # drop buffered tail instantly
+                        else:
+                            stream.stop()       # let the final words drain
+                        stream.close()
                     except Exception:
                         pass
-                except Exception as e:
-                    print(f"[CortexTTS] Play error: {e}")
-                if self._stop.is_set():
-                    break
-            if on_done:
-                on_done()
+                if on_done:
+                    on_done()
 
-        synth_t = threading.Thread(target=_synth_worker, daemon=True)
+        synth_t = threading.Thread(target=_submit_worker, daemon=True)
         play_t  = threading.Thread(target=_play_worker,  daemon=True)
         synth_t.start()
         play_t.start()
         synth_t.join()
         play_t.join()
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    def _play_afplay(self, audio_bytes: bytes) -> None:
+        """Fallback player — one afplay process, tracked for barge-in kill."""
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+                f.write(audio_bytes)
+                tmp = f.name
+            proc = subprocess.Popen(["afplay", tmp])
+            with self._proc_lock:
+                self._play_proc = proc
+            proc.wait()
+            with self._proc_lock:
+                self._play_proc = None
+            import os as _os
+            try:
+                _os.unlink(tmp)
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[CortexTTS] Play error: {e}")
 
     def stop(self):
-        """Kill immediately — terminates afplay mid-sentence."""
+        """Kill immediately — aborts the PCM stream / afplay mid-sentence."""
         self._stop.set()
         with self._proc_lock:
-            if self._play_proc and self._play_proc.poll() is None:
-                try:
-                    self._play_proc.terminate()
-                except Exception:
-                    pass
+            proc   = self._play_proc
+            stream = self._out_stream
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+        if stream is not None:
+            try:
+                stream.abort()
+            except Exception:
+                pass
 
 
 # ── Always-on barge-in monitor ───────────────────────────────────────────────────
@@ -1080,6 +1188,15 @@ class CortexSession:
         print("[Cortex] Loading Whisper…")
         from core.stt import WhisperSTT
         self._stt = await asyncio.to_thread(WhisperSTT, self._whisper_model)
+
+        # Warm the pipeline snapshot cache off the voice path so the first
+        # CRM question answers from a local snapshot instead of paging
+        # Supabase inline.
+        try:
+            from actions.luxe_supabase import start_cache
+            start_cache()
+        except Exception:
+            pass
 
         sys_content = await asyncio.to_thread(self._build_system_prompt)
         self._messages = [{"role": "system", "content": sys_content}]

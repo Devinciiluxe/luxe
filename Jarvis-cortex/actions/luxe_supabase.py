@@ -23,6 +23,8 @@ See pipeline_arm.py for the arming gate.
 """
 import json
 import os
+import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -94,10 +96,173 @@ def _as_list(resp: "dict | list", label: str) -> "list | None":
     return resp
 
 
+# ── Progressive snapshot cache ───────────────────────────────────────────────
+# A voice turn must never wait on PostgREST. A background thread refreshes a
+# local snapshot every _REFRESH_SECS; read actions answer from it instantly.
+# A stale snapshot is still served (with its age spoken) while a refresh runs
+# behind it — a slightly old number now beats a fresh one after seconds of
+# dead air. Writes (queue_job, arming) always hit Supabase live.
+
+_REFRESH_SECS = 30.0
+
+_cache_lock        = threading.Lock()
+_cache: dict       = {}                  # key -> (monotonic_ts, data)
+_refresh_now       = threading.Event()
+_refresher_started = False
+
+
+def _cache_get(key: str) -> "tuple[float | None, object | None]":
+    with _cache_lock:
+        entry = _cache.get(key)
+    if not entry:
+        return None, None
+    ts, data = entry
+    return time.monotonic() - ts, data
+
+
+def _cache_put(key: str, data) -> None:
+    with _cache_lock:
+        _cache[key] = (time.monotonic(), data)
+
+
+def _age_note(age: "float | None") -> str:
+    if age is None or age < 45:
+        return ""
+    if age < 120:
+        return " Snapshot about a minute old — refreshing behind the scenes."
+    return f" Snapshot {int(age // 60)} minutes old — refreshing behind the scenes."
+
+
+def _fetch_leads_counts() -> "dict | None":
+    """Page the full leads table (PostgREST caps at 1000/page) → status counts."""
+    counts: dict = {}
+    offset = 0
+    while True:
+        page = _rest_get("leads", params=f"?select=status&order=id.asc&limit=1000&offset={offset}")
+        if not isinstance(page, list):
+            return None
+        for row in page:
+            if isinstance(row, dict):
+                status = str(row.get("status") or "unknown")
+                counts[status] = counts.get(status, 0) + 1
+        if len(page) < 1000:
+            break
+        offset += len(page)
+    return counts
+
+
+def _fetch_jobs() -> "dict | None":
+    """Latest 50 jobs (rendering) + full paged status scan (pending count)."""
+    recent = _rest_get(
+        "browser_jobs",
+        params=(
+            "?select=id,kind,status,error,created_at,done_at,claimed_at"
+            "&order=created_at.desc&limit=50"
+        ),
+    )
+    recent_list = _as_list(recent, "browser_jobs")
+    if recent_list is None:
+        return None
+    statuses: list = []
+    offset = 0
+    while True:
+        page = _rest_get("browser_jobs", params=f"?select=status&order=id.asc&limit=1000&offset={offset}")
+        if not isinstance(page, list):
+            break
+        statuses.extend(page)
+        if len(page) < 1000:
+            break
+        offset += len(page)
+    pending = sum(1 for j in statuses if isinstance(j, dict) and j.get("status") == "pending")
+    return {"recent": recent_list, "pending": pending}
+
+
+def _fetch_worker() -> "dict | None":
+    """Active airbnb session row (worker getSession() match) + stale fallback row."""
+    rows = _rest_get(
+        "platform_sessions",
+        params=(
+            "?select=status,last_used_at,error_count,refreshed_at"
+            "&platform=eq.airbnb&status=eq.active"
+            "&refreshed_at=gt.2000-01-01T00:00:00.000Z"
+            "&order=refreshed_at.desc&limit=1"
+        ),
+    )
+    active = _as_list(rows, "platform_sessions")
+    if active is None and isinstance(rows, dict) and rows.get("ok") is False:
+        return None
+    fallback: list = []
+    if not active:
+        all_rows = _rest_get(
+            "platform_sessions",
+            params=(
+                "?select=status,last_used_at,error_count,refreshed_at"
+                "&platform=eq.airbnb"
+                "&refreshed_at=gt.2000-01-01T00:00:00.000Z"
+                "&order=refreshed_at.desc&limit=1"
+            ),
+        )
+        fallback = _as_list(all_rows, "platform_sessions") or []
+    return {"active": active or [], "fallback": fallback}
+
+
+_FETCHERS = (
+    ("leads_counts", _fetch_leads_counts),
+    ("jobs",         _fetch_jobs),
+    ("worker",       _fetch_worker),
+)
+
+
+def _refresher_loop() -> None:
+    while True:
+        for key, fn in _FETCHERS:
+            try:
+                data = fn()
+                if data is not None:
+                    _cache_put(key, data)
+            except Exception:
+                pass                      # keep serving the last good snapshot
+        _refresh_now.wait(timeout=_REFRESH_SECS)
+        _refresh_now.clear()
+
+
+def start_cache() -> None:
+    """Start the background snapshot refresher (idempotent, daemon)."""
+    global _refresher_started
+    if not SUPABASE_KEY:
+        return
+    with _cache_lock:
+        if _refresher_started:
+            return
+        _refresher_started = True
+    threading.Thread(target=_refresher_loop, daemon=True, name="luxe-snapshot").start()
+
+
+def _snapshot(key: str, fetch) -> "tuple[object | None, str]":
+    """Cached data + spoken age note. Cold cache → one inline live fetch."""
+    start_cache()
+    age, data = _cache_get(key)
+    if data is None:
+        data = fetch()                    # first call ever (or network was down)
+        if data is not None:
+            _cache_put(key, data)
+        return data, ""
+    if age is not None and age > _REFRESH_SECS:
+        _refresh_now.set()
+    return data, _age_note(age)
+
+
+# get_lead is parameterized, so it can't be pre-fetched — a small per-query
+# TTL cache still makes repeat asks ("what about that lead again?") instant.
+_LEAD_TTL = 60.0
+_lead_cache: "dict[str, tuple[float, str]]" = {}
+
+
 def luxe_supabase(parameters: dict) -> str:
     if not SUPABASE_KEY:
         return "Sir, the pipeline Supabase key isn't configured."
 
+    start_cache()
     action = (parameters.get("action", "")).strip()
 
     if action == "arm_live":
@@ -132,21 +297,13 @@ def luxe_supabase(parameters: dict) -> str:
         )
 
     if action == "watch_jobs":
-        # Live loop snapshot for Jarvis to narrate the claim→process→status cycle.
+        # Queue snapshot for Jarvis to narrate the claim→process→status cycle.
         limit = int(parameters.get("limit") or 15)
         limit = max(1, min(limit, 50))
-        rows = _rest_get(
-            "browser_jobs",
-            params=(
-                f"?select=id,kind,status,error,created_at,done_at,claimed_at"
-                f"&order=created_at.desc&limit={limit}"
-            ),
-        )
-        if isinstance(rows, dict) and rows.get("ok") is False:
-            return f"Sir, I couldn't watch the job queue: {rows.get('error')}"
-        job_list = _as_list(rows, "browser_jobs")
-        if job_list is None:
+        jobs, note = _snapshot("jobs", _fetch_jobs)
+        if jobs is None or not isinstance(jobs, dict):
             return "Sir, I couldn't watch the job queue."
+        job_list = list(jobs.get("recent") or [])[:limit]
         if not job_list:
             return "Job queue is empty — nothing cycling right now."
         by_status: dict[str, int] = {}
@@ -161,64 +318,32 @@ def luxe_supabase(parameters: dict) -> str:
             tail = f" err={err}" if err and st == "failed" else ""
             lines.append(f"{kind}:{st}{tail}")
         summary = ", ".join(f"{v} {k}" for k, v in sorted(by_status.items(), key=lambda x: -x[1]))
-        return f"Watching queue ({summary}). Latest: " + "; ".join(lines[:8])
+        return f"Watching queue ({summary}). Latest: " + "; ".join(lines[:8]) + note
 
     if action == "pipeline_status":
-        # PostgREST caps every response at 1000 rows, so "limit=1500" silently
-        # returned 1000 of 5065 leads and reported that as the whole pipeline.
-        # Page with offset until a short page comes back, so the count is the
-        # real one.
-        leads_by_status: list = []
-        offset = 0
-        while True:
-            page = _rest_get("leads", params=f"?select=status&order=id.asc&limit=1000&offset={offset}")
-            if isinstance(page, dict) and page.get("ok") is False:
-                return f"Sir, I couldn't reach the pipeline: {page.get('error')}"
-            if not isinstance(page, list):
-                return f"Sir, pipeline_status got a non-list response from leads (offset={offset})."
-            if not page:
-                break
-            leads_by_status.extend(page)
-            if len(page) < 1000:
-                break
-            offset += len(page)
-        counts: dict[str, int] = {}
-        for row in leads_by_status:
-            if not isinstance(row, dict):
-                continue
-            status = str(row.get("status") or "unknown")
-            counts[status] = counts.get(status, 0) + 1
+        # Full-table paging lives in _fetch_leads_counts and runs on the
+        # background refresher — this handler answers from the snapshot so the
+        # voice never waits through six serial PostgREST round-trips.
+        counts, note = _snapshot("leads_counts", _fetch_leads_counts)
+        if not isinstance(counts, dict):
+            return "Sir, I couldn't reach the pipeline just now — I'll have fresh numbers on the next pass."
         total = sum(counts.values())
 
-        jobs = _rest_get("browser_jobs", params="?select=status&order=id.asc&limit=1000")
-        job_list = _as_list(jobs, "browser_jobs")
-        if job_list is None and isinstance(jobs, dict) and jobs.get("ok") is False:
-            return f"Sir, I couldn't reach the job queue: {jobs.get('error')}"
-        # Page job statuses the same way as leads so pending counts are not capped at 1000.
-        all_jobs: list = list(job_list or [])
-        job_offset = len(all_jobs)
-        while job_list and len(job_list) >= 1000:
-            more = _rest_get(
-                "browser_jobs",
-                params=f"?select=status&order=id.asc&limit=1000&offset={job_offset}",
-            )
-            if not isinstance(more, list) or not more:
-                break
-            all_jobs.extend(more)
-            if len(more) < 1000:
-                break
-            job_offset += len(more)
-        pending_jobs = sum(1 for j in all_jobs if isinstance(j, dict) and j.get("status") == "pending")
+        jobs, jnote = _snapshot("jobs", _fetch_jobs)
+        pending_jobs = jobs.get("pending", 0) if isinstance(jobs, dict) else 0
 
         parts = ", ".join(f"{v} {k}" for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5])
         armed = "ARMED (sends)" if is_pipeline_armed() else "dry-run (sends)"
         return (
             f"{total} leads in the pipeline (Supabase): {parts}. "
-            f"{pending_jobs} browser jobs pending. Send mode: {armed}."
+            f"{pending_jobs} browser jobs pending. Send mode: {armed}." + (note or jnote)
         )
 
     if action == "get_lead":
         query = parameters.get("query", "")
+        hit = _lead_cache.get(query)
+        if hit and time.monotonic() - hit[0] < _LEAD_TTL:
+            return hit[1]
         rows = _rest_get(
             "leads",
             params=(
@@ -230,24 +355,27 @@ def luxe_supabase(parameters: dict) -> str:
             return f"Sir, I couldn't search leads: {rows.get('error')}"
         lead_list = _as_list(rows, "leads")
         if not lead_list:
-            return f"Sir, I couldn't find a lead matching '{query}'."
-        lines = []
-        for l in lead_list:
-            if not isinstance(l, dict):
-                continue
-            lines.append(
-                f"{l.get('first_name','')} {l.get('last_name','')} — "
-                f"{l.get('property_name','')}, status {l.get('status')}, score {l.get('lead_score')}"
-            )
-        return "; ".join(lines) if lines else f"Sir, I couldn't find a lead matching '{query}'."
+            result = f"Sir, I couldn't find a lead matching '{query}'."
+        else:
+            lines = []
+            for l in lead_list:
+                if not isinstance(l, dict):
+                    continue
+                lines.append(
+                    f"{l.get('first_name','')} {l.get('last_name','')} — "
+                    f"{l.get('property_name','')}, status {l.get('status')}, score {l.get('lead_score')}"
+                )
+            result = "; ".join(lines) if lines else f"Sir, I couldn't find a lead matching '{query}'."
+        if len(_lead_cache) >= 32:
+            _lead_cache.pop(next(iter(_lead_cache)))
+        _lead_cache[query] = (time.monotonic(), result)
+        return result
 
     if action == "job_status":
-        rows = _rest_get("browser_jobs", params="?select=kind,status&order=created_at.desc&limit=10")
-        if isinstance(rows, dict) and rows.get("ok") is False:
-            return f"Sir, I couldn't reach the job queue: {rows.get('error')}"
-        job_list = _as_list(rows, "browser_jobs")
-        if job_list is None:
+        jobs, note = _snapshot("jobs", _fetch_jobs)
+        if jobs is None or not isinstance(jobs, dict):
             return "Sir, I couldn't reach the job queue."
+        job_list = list(jobs.get("recent") or [])[:10]
         if not job_list:
             return "No browser jobs in the queue right now."
         counts: dict[str, int] = {}
@@ -256,34 +384,18 @@ def luxe_supabase(parameters: dict) -> str:
                 continue
             st = str(j.get("status") or "unknown")
             counts[st] = counts.get(st, 0) + 1
-        return "Recent jobs: " + ", ".join(f"{v} {k}" for k, v in counts.items())
+        return "Recent jobs: " + ", ".join(f"{v} {k}" for k, v in counts.items()) + note
 
     if action == "worker_health":
         # Match worker getSession(): active + non-epoch refreshed_at.
-        rows = _rest_get(
-            "platform_sessions",
-            params=(
-                "?select=status,last_used_at,error_count,refreshed_at"
-                "&platform=eq.airbnb&status=eq.active"
-                "&refreshed_at=gt.2000-01-01T00:00:00.000Z"
-                "&order=refreshed_at.desc&limit=1"
-            ),
-        )
-        if isinstance(rows, dict) and rows.get("ok") is False:
-            return f"Sir, I couldn't read platform_sessions: {rows.get('error')}"
-        sess = _as_list(rows, "platform_sessions")
+        # Fetch logic lives in _fetch_worker; this handler reads the snapshot.
+        data, note = _snapshot("worker", _fetch_worker)
+        if not isinstance(data, dict):
+            return "Sir, I couldn't read platform_sessions."
+        sess = data.get("active") or []
         if not sess:
             # Fall back: any non-epoch row so we report expired/stale truthfully.
-            all_rows = _rest_get(
-                "platform_sessions",
-                params=(
-                    "?select=status,last_used_at,error_count,refreshed_at"
-                    "&platform=eq.airbnb"
-                    "&refreshed_at=gt.2000-01-01T00:00:00.000Z"
-                    "&order=refreshed_at.desc&limit=1"
-                ),
-            )
-            sess = _as_list(all_rows, "platform_sessions") or []
+            sess = data.get("fallback") or []
             if not sess:
                 return (
                     "Sir, I don't see any browser session for the worker — "
@@ -293,7 +405,7 @@ def luxe_supabase(parameters: dict) -> str:
             return (
                 f"Worker session status: {s.get('status')} (no active non-epoch session), "
                 f"{s.get('error_count', 0)} errors, last used {s.get('last_used_at')}, "
-                f"refreshed {s.get('refreshed_at')}. Bootstrap cookies or queue session_refresh."
+                f"refreshed {s.get('refreshed_at')}. Bootstrap cookies or queue session_refresh." + note
             )
         s = sess[0] if isinstance(sess[0], dict) else {}
         last_used = str(s.get("last_used_at") or "")
@@ -301,11 +413,11 @@ def luxe_supabase(parameters: dict) -> str:
             return (
                 f"Worker session looks STALE (last_used epoch): status={s.get('status')}, "
                 f"last used {s.get('last_used_at')}, refreshed {s.get('refreshed_at')}. "
-                "Queue session_refresh or push cookies — Lightpanda will keep failing inbox_sync until then."
+                "Queue session_refresh or push cookies — Lightpanda will keep failing inbox_sync until then." + note
             )
         return (
             f"Worker session status: {s.get('status')}, {s.get('error_count', 0)} errors, "
-            f"last used {s.get('last_used_at')}, refreshed {s.get('refreshed_at')}."
+            f"last used {s.get('last_used_at')}, refreshed {s.get('refreshed_at')}." + note
         )
 
     if action == "queue_job":
@@ -321,7 +433,8 @@ def luxe_supabase(parameters: dict) -> str:
             # (2) this request must pass confirm_send. Otherwise always dry_run.
             # Persist confirm_send on the job so the VM worker can re-check it
             # (worker must not trust dry_run=false alone).
-            armed = is_pipeline_armed()
+            # Send gate always checks live — never the status-display cache.
+            armed = is_pipeline_armed(fresh=True)
             confirmed = bool(parameters.get("confirm_send"))
             payload["confirm_send"] = confirmed
             payload["dry_run"] = not (armed and confirmed)
@@ -342,6 +455,23 @@ def luxe_supabase(parameters: dict) -> str:
             # Prefer return=representation → list; tolerate empty/opaque success.
             if isinstance(r, dict) and "error" in r:
                 return f"Sir, I couldn't queue that job: {r.get('error')}"
+
+        # Reflect the new job in the snapshot immediately (so a follow-up
+        # "watch the queue" sees it) and pull a real refresh behind it.
+        try:
+            _, jobs = _cache_get("jobs")
+            if isinstance(jobs, dict):
+                _cache_put("jobs", {
+                    "recent": [{
+                        "id": job_id, "kind": kind, "status": "pending",
+                        "error": None, "created_at": None, "done_at": None,
+                        "claimed_at": None,
+                    }] + list(jobs.get("recent") or [])[:49],
+                    "pending": int(jobs.get("pending", 0)) + 1,
+                })
+        except Exception:
+            pass
+        _refresh_now.set()
 
         if kind == "send_message":
             if payload["dry_run"]:

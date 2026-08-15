@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -122,8 +123,35 @@ def _settings_armed() -> bool | None:
     return None
 
 
-def is_pipeline_armed() -> bool:
-    """True only when live mode has been explicitly armed."""
+# The remote settings lookup is a network round-trip; status displays call
+# is_pipeline_armed() inside the voice path, so cache the remote answer
+# briefly. Arm/disarm invalidates it, and the send gate passes fresh=True —
+# safety decisions never ride the cache.
+_REMOTE_TTL = 15.0
+_remote_cache: "tuple[float, bool | None] | None" = None
+
+
+def _settings_armed_cached() -> "bool | None":
+    global _remote_cache
+    now = time.monotonic()
+    if _remote_cache is not None and now - _remote_cache[0] < _REMOTE_TTL:
+        return _remote_cache[1]
+    val = _settings_armed()
+    _remote_cache = (now, val)
+    return val
+
+
+def _invalidate_remote_cache() -> None:
+    global _remote_cache
+    _remote_cache = None
+
+
+def is_pipeline_armed(fresh: bool = False) -> bool:
+    """True only when live mode has been explicitly armed.
+
+    fresh=True forces a live remote lookup (used by the send gate);
+    the default serves status displays from a 15 s cache.
+    """
     env = os.environ.get("LUXE_PIPELINE_LIVE", "").strip()
     if env in ("1", "true", "TRUE", "yes", "YES"):
         return True
@@ -134,13 +162,21 @@ def is_pipeline_armed() -> bool:
             return True
     except OSError:
         pass
-    remote = _settings_armed()
+    remote = _settings_armed() if fresh else _settings_armed_cached()
+    if fresh:
+        _remote_cache_update(remote)
     return bool(remote)
+
+
+def _remote_cache_update(val: "bool | None") -> None:
+    global _remote_cache
+    _remote_cache = (time.monotonic(), val)
 
 
 def arm_pipeline() -> None:
     _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     _STATE_PATH.write_text("1\n", encoding="utf-8")
+    _invalidate_remote_cache()
     _mirror_settings(True)
 
 
@@ -150,6 +186,7 @@ def disarm_pipeline() -> None:
             _STATE_PATH.unlink()
     except OSError:
         pass
+    _invalidate_remote_cache()
     _mirror_settings(False)
 
 
