@@ -1,7 +1,7 @@
 // Server-Sent Events stream proxied through the NexusHub Durable Object.
 // The chat UI subscribes here for live node-glow, new leads, and chat replies.
-// In dev without the durableObject flag, the hub is absent and the client falls
-// back to refetch-on-mutation (the app still works, just without cross-tab live push).
+// In dev without ROOMS, keep-alive pings + store.ts 60s snapshot poll keep
+// Jarvis on live Supabase state (never static mission-data.js).
 import { createFileRoute } from "@tanstack/react-router";
 import { NexusHub } from "../../lib/hub.server";
 import { env } from "cloudflare:workers";
@@ -14,13 +14,28 @@ export const Route = createFileRoute("/api/events")({
       GET: async () => {
         const rooms = (env as Record<string, unknown>).ROOMS as HubBinding | undefined;
         if (!rooms) {
-          // Dev fallback: an empty stream that just stays open.
+          // Dev fallback: keep-alive comments so EventSource stays connected;
+          // store.ts also polls getSnapshot ~every 12s for Supabase truth.
           const stream = new ReadableStream({
             start(controller) {
-              controller.enqueue(new TextEncoder().encode(`: dev\n\n`));
+              const enc = new TextEncoder();
+              controller.enqueue(enc.encode(`: cortex-dev\n\n`));
+              const t = setInterval(() => {
+                try {
+                  controller.enqueue(enc.encode(`: ping ${Date.now()}\n\n`));
+                } catch {
+                  clearInterval(t);
+                }
+              }, 15_000);
             },
           });
-          return new Response(stream, { headers: { "content-type": "text/event-stream" } });
+          return new Response(stream, {
+            headers: {
+              "content-type": "text/event-stream",
+              "cache-control": "no-cache",
+              "x-accel-buffering": "no",
+            },
+          });
         }
         const id = rooms.idFromName("nexus");
         const stub = rooms.get(id);

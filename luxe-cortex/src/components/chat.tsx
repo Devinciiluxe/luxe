@@ -88,7 +88,7 @@ export function ChatWindow({
       </div>
       <div className="flex items-center gap-1.5">
         <span className={`chip ${thinking ? "chip-magenta pulse" : state === "sending" ? "chip-cyan" : "chip-cyan"}`}>
-          {thinking ? "THINKING" : state === "sending" ? "SENDING" : "LIVE"}
+          {thinking ? "THINKING" : state === "sending" ? "SENDING" : "LIVE · SB"}
         </span>
         <button onClick={onClose} aria-label="Close thread" className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-[#8b98a5] hover:bg-white/5">
           ✕

@@ -1,0 +1,27 @@
+[Unit]
+Description=Jarvis-cortex voice UI (optional; needs display or Xvfb)
+After=network.target luxe-cortex.service
+Documentation=file:///opt/luxe-mstr-rebuild/luxe-cortex/docs/vm-systemd-units.md
+
+# TODO(operator): Choose how voice Jarvis runs 24/7 on the VM —
+#   (A) keep Mac UI only and rely on luxe-pipeline-watch + worker for always-on ops, OR
+#   (B) enable this unit under Xvfb / a real seat so PyQt can start.
+# Default shipping path is (A): enable luxe-pipeline-watch, leave this unit disabled
+# until a display strategy is confirmed. Do not invent /claude-api modules.
+
+[Service]
+Type=simple
+User=luxecortex
+Group=luxecortex
+WorkingDirectory=/opt/luxe-mstr-rebuild/Jarvis-cortex
+EnvironmentFile=-/opt/luxe-mstr-rebuild/deploy/cortex.env
+EnvironmentFile=-/opt/luxe-mstr-rebuild/Jarvis-cortex/.env
+Environment=JARVIS_MINDMAP_URL=http://127.0.0.1:8787/cortex
+# Uncomment when using Xvfb:
+# Environment=DISPLAY=:99
+ExecStart=/usr/bin/python3 /opt/luxe-mstr-rebuild/Jarvis-cortex/main.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

@@ -1,10 +1,10 @@
 {
-  "exported_at": "2026-08-14T07:15:15.661908+00:00",
+  "exported_at": "2026-08-14T17:54:47.793798+00:00",
   "source": "https://vbswmotdtyqakzuzkqui.supabase.co",
   "summary": {
-    "inbox_sync_jobs": 4,
+    "inbox_sync_jobs": 12,
     "inbox_sync_done": 0,
-    "inbox_sync_failed": 4,
+    "inbox_sync_failed": 8,
     "inbox_sync_success_rate_pct": 0.0,
     "inbox_sync_messages": 0,
     "unique_threads": 0,
@@ -12,35 +12,77 @@
     "threads_found_sum": 0,
     "synced_claimed_sum": 0,
     "unlinked_lead_messages": 0,
-    "send_message_jobs": 2,
+    "send_message_jobs": 5,
     "outbound_verified": 0,
-    "outbound_dry_run": 2,
+    "outbound_dry_run": 5,
     "outbound_unverified": 0,
     "airbnb_leads_sampled": 0,
     "pipeline_leads_sampled": 5065,
     "session": {
       "status": "active",
       "error_count": 0,
-      "last_used_at": "1970-01-01T00:00:00.000Z",
+      "last_used_at": "2026-08-14T17:53:19.927675+00:00",
       "platform": "airbnb",
-      "id": 1,
-      "total_sessions": 6
+      "id": 12,
+      "total_sessions": 10
     }
   },
   "inbox_job_status": {
-    "failed": 4
+    "pending": 3,
+    "failed": 8,
+    "claimed": 1
   },
   "send_job_status": {
-    "failed": 2
+    "failed": 5
   },
   "status_chart": [
     {
+      "status": "pending",
+      "count": 3
+    },
+    {
+      "status": "claimed",
+      "count": 1
+    },
+    {
       "status": "failed",
-      "count": 4
+      "count": 8
     }
   ],
   "daily_messages": [],
   "failed_jobs": [
+    {
+      "id": "bj_smoke_45841daa601e4489",
+      "status": "failed",
+      "error": "no valid session \u2014 queue session_refresh",
+      "attempts": 1,
+      "created_at": "2026-08-14T16:35:24.572021+00:00",
+      "done_at": "2026-08-14T16:35:36.662+00:00"
+    },
+    {
+      "id": "bj_smoke_013c104b0c504461",
+      "status": "failed",
+      "error": "no valid session \u2014 queue session_refresh",
+      "attempts": 1,
+      "created_at": "2026-08-14T16:34:52.789837+00:00",
+      "done_at": "2026-08-14T16:35:22.218+00:00"
+    },
+    {
+      "id": "bj_smoke_96b283dace374623",
+      "status": "failed",
+      "error": "no threads found \u2014 session likely expired",
+      "attempts": 3,
+      "created_at": "2026-08-14T16:30:03.798893+00:00",
+      "done_at": "2026-08-14T16:33:05.99+00:00"
+    },
+    {
+      "id": "bj_smoke_bf2cf419aa824348",
+      "status": "failed",
+      "error": "no threads found \u2014 session likely expired",
+      "attempts": 3,
+      "created_at": "2026-08-14T16:29:30.455704+00:00",
+      "done_at": "2026-08-14T16:31:18.742+00:00"
+    },
     {
       "id": "bj_3df4022e24a24938b62752e40bc0d4e9",
       "status": "failed",
@@ -78,6 +120,33 @@
   "duplicates": [],
   "unlinked_leads": [],
   "outbound_jobs": [
+    {
+      "id": "bj_7a554c00dbb248839f2cb97f9cf482cc",
+      "status": "failed",
+      "dry_run": true,
+      "verified": false,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-14T16:31:39.29903+00:00",
+      "done_at": "2026-08-14T16:35:37.342+00:00"
+    },
+    {
+      "id": "bj_14b914c82ea74ddbae16d8e2de3b4cb9",
+      "status": "failed",
+      "dry_run": true,
+      "verified": false,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-14T16:31:39.268977+00:00",
+      "done_at": "2026-08-14T16:35:37.15+00:00"
+    },
+    {
+      "id": "bj_f7f714f992f74d64bb13678c70bda59a",
+      "status": "failed",
+      "dry_run": true,
+      "verified": false,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-14T16:29:58.828692+00:00",
+      "done_at": "2026-08-14T16:35:36.882+00:00"
+    },
     {
       "id": "bj_c6a8ed9fefdf4eb39bbc101235f0a977",
       "status": "failed",
@@ -120,11 +189,82 @@
     "(null)": 12
   },
   "callouts": [
-    "4 inbox_sync job(s) failed \u2014 check worker session / Lightpanda.",
-    "platform_sessions.last_used_at is epoch (1970) \u2014 cookies may never have been used by the worker.",
+    "8 inbox_sync job(s) failed \u2014 check worker session / Lightpanda.",
     "inbox_sync jobs exist but zero messages were recorded \u2014 no Airbnb inbox data reached the CRM."
   ],
   "recent_inbox_jobs": [
+    {
+      "id": "bj_smoke_31134b60f76e48eb",
+      "status": "pending",
+      "threads_found": null,
+      "synced": null,
+      "error": null,
+      "created_at": "2026-08-14T17:53:32.08732+00:00",
+      "done_at": null
+    },
+    {
+      "id": "bj_smoke_5a86dbb90092436a",
+      "status": "pending",
+      "threads_found": null,
+      "synced": null,
+      "error": null,
+      "created_at": "2026-08-14T17:30:04.723714+00:00",
+      "done_at": null
+    },
+    {
+      "id": "bj_smoke_358ab1f8ae364cbc",
+      "status": "pending",
+      "threads_found": null,
+      "synced": null,
+      "error": null,
+      "created_at": "2026-08-14T17:28:14.964911+00:00",
+      "done_at": null
+    },
+    {
+      "id": "bj_smoke_45841daa601e4489",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-14T16:35:24.572021+00:00",
+      "done_at": "2026-08-14T16:35:36.662+00:00"
+    },
+    {
+      "id": "bj_smoke_013c104b0c504461",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no valid session \u2014 queue session_refresh",
+      "created_at": "2026-08-14T16:34:52.789837+00:00",
+      "done_at": "2026-08-14T16:35:22.218+00:00"
+    },
+    {
+      "id": "bj_smoke_1fd9b0d1ef3245ab",
+      "status": "claimed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no threads found \u2014 session likely expired",
+      "created_at": "2026-08-14T16:31:12.39331+00:00",
+      "done_at": null
+    },
+    {
+      "id": "bj_smoke_96b283dace374623",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no threads found \u2014 session likely expired",
+      "created_at": "2026-08-14T16:30:03.798893+00:00",
+      "done_at": "2026-08-14T16:33:05.99+00:00"
+    },
+    {
+      "id": "bj_smoke_bf2cf419aa824348",
+      "status": "failed",
+      "threads_found": null,
+      "synced": null,
+      "error": "no threads found \u2014 session likely expired",
+      "created_at": "2026-08-14T16:29:30.455704+00:00",
+      "done_at": "2026-08-14T16:31:18.742+00:00"
+    },
     {
       "id": "bj_3df4022e24a24938b62752e40bc0d4e9",
       "status": "failed",

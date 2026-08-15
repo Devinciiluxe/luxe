@@ -1,6 +1,9 @@
-// Builds the MJ3-shaped object (same shape mission-data.js used to hardcode)
-// from real Supabase/Postgres data. Reuses the same DATABASE_URL/pg driver
-// luxe-design's own src/lib/db.js already uses — no second DB client.
+// Builds the MJ3-shaped object from DATABASE_URL/pg.
+//
+// ⚠ UNUSED ON THE ROOT DEMO SURFACE — there is no server.mjs here; npm start
+// refuses. Do NOT wire this back into dashboard/public. Live pipeline numbers
+// come from luxe-cortex (/cortex, Supabase + EventSource). Keeping this file
+// only as a historical reference for the MJ3 shape.
 import pg from 'pg';
 
 const { Pool } = pg;

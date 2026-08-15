@@ -16,7 +16,6 @@ import {
   getSnapshot,
   makeProposal,
   markNoShow,
-  runHunter,
   sendAutomationReply,
   sendChat,
   setLeadStageFn,
@@ -45,6 +44,7 @@ export function useCortex() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [events, setEvents] = useState<LogEvent[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   // True while the native voice shell (Jarvis-cortex's PyQt6 window, via
   // window.__jarvisBridge) is actually speaking out loud — ORed into
@@ -123,37 +123,88 @@ export function useCortex() {
     [triggerStream],
   );
 
-  // Bootstrap from SSR snapshot once.
+  // Bootstrap from SSR snapshot once — Supabase only; never invent demo rows.
   useEffect(() => {
-    void getSnapshot().then((s) => {
-      setSnap(s);
-      setEvents(s.events);
-      setMetrics(s.metrics);
-      setActiveLeadId(s.activeLeadId);
-    });
+    void getSnapshot()
+      .then((s) => {
+        setSnap(s);
+        setEvents(s.events);
+        setMetrics(s.metrics);
+        setActiveLeadId(s.activeLeadId);
+        setDataError(s.error ?? null);
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        setDataError(msg || "Supabase snapshot failed");
+        setMetrics(null);
+        setSnap({ leads: [], events: [], metrics: null, activeLeadId: null, error: msg });
+        setEvents([]);
+      });
   }, []);
 
-  // Subscribe to the live hub.
+  // Subscribe to the live hub — reconnect forever so Jarvis always sees
+  // pipeline state (Supabase-backed frames via NexusHub), never a one-shot demo.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const es = new EventSource("/api/events");
-      es.onmessage = (ev) => {
-        try {
-          applyFrame(JSON.parse(ev.data) as LiveFrame);
-        } catch {
-          /* ignore malformed */
+    let cancelled = false;
+    let retryMs = 1000;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (cancelled) return;
+      try {
+        const es = new EventSource("/api/events");
+        es.onopen = () => {
+          retryMs = 1000;
+        };
+        es.onmessage = (ev) => {
+          try {
+            applyFrame(JSON.parse(ev.data) as LiveFrame);
+          } catch {
+            /* ignore malformed */
+          }
+        };
+        es.onerror = () => {
+          es.close();
+          esRef.current = null;
+          if (cancelled) return;
+          reconnectTimer = setTimeout(connect, retryMs);
+          retryMs = Math.min(30_000, Math.floor(retryMs * 1.7));
+        };
+        esRef.current = es;
+      } catch {
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, retryMs);
+          retryMs = Math.min(30_000, Math.floor(retryMs * 1.7));
         }
-      };
-      es.onerror = () => {
-        es.close();
-        esRef.current = null;
-      };
-      esRef.current = es;
-      return () => es.close();
-    } catch {
-      /* SSE unsupported; app works via refetch-on-mutation */
-    }
+      }
+    };
+    connect();
+
+    // Periodic Supabase snapshot so worker-side job results refresh the cortex
+    // even when SSE is quiet (Mac asleep / no UI mutation).
+    const poll = setInterval(() => {
+      void getSnapshot()
+        .then((s) => {
+          setSnap(s);
+          setEvents(s.events);
+          setMetrics(s.metrics);
+          setDataError(null);
+        })
+        .catch((e: unknown) => {
+          // Keep last-good numbers but make the outage obvious — never swap in demo fixtures.
+          const msg = e instanceof Error ? e.message : String(e);
+          setDataError(msg || "Supabase unreachable — showing last successful snapshot (may be stale)");
+        });
+    }, 12_000);
+
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearInterval(poll);
+      esRef.current?.close();
+      esRef.current = null;
+    };
   }, [applyFrame]);
 
   // ---------- multi-thread actions ----------
@@ -273,15 +324,13 @@ export function useCortex() {
   }, [activeLeadId]);
 
   const sweep = useCallback(async () => {
-    setHunterSweeping(true);
-    try {
-      const { lead } = await runHunter({ data: {} });
-      setTimeout(() => void selectLead(lead.id), 600);
-      triggerStream(lead.id);
-    } finally {
-      setTimeout(() => setHunterSweeping(false), 1400);
-    }
-  }, [selectLead, triggerStream]);
+    // Hard-blocked: never call createScrapedLead / Math.random hunter.
+    // Real intake is scrape_listing / scrape_search browser_jobs → Supabase.
+    console.warn(
+      "[cortex] Lead Hunter disabled — queue scrape_listing or scrape_search via luxe_supabase_REAL_PIPELINE / browser_jobs worker.",
+    );
+    setHunterSweeping(false);
+  }, []);
 
   const proposal = useCallback(async () => {
     if (!activeLeadId) return;
@@ -300,7 +349,7 @@ export function useCortex() {
   const leads = snap?.leads ?? [];
 
   return {
-    snap, events, metrics, leads,
+    snap, events, metrics, leads, dataError,
     // multi-thread chat
     threads, openIds, activeLeadId,
     activateChat, closeChat, closeAllChats, selectLead, sendTo, queueNudge,

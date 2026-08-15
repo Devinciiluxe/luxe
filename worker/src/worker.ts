@@ -70,6 +70,30 @@ const RE = {
 
 const INBOX_PATH = "/hosting/messages";
 
+/**
+ * airbnb.ca vs airbnb.com are separate account surfaces — `_jwt` and related
+ * auth cookies are host-scoped and not interchangeable. Always navigate the
+ * same TLD the session was captured from (cookie push prefers the host that
+ * holds `_jwt`). Do not rewrite `.ca` → `.com` Domain attributes; CDP will
+ * accept the set but Airbnb will not treat it as a logged-in COM session.
+ */
+type AirbnbSite = { tld: "ca" | "com"; origin: string };
+
+function airbnbSiteFromCookies(cookies: { domain?: string; name?: string }[] | null | undefined): AirbnbSite {
+  const list = cookies ?? [];
+  // Site must follow `_jwt` only — leftover .ca cookies must not override a .com JWT.
+  const jwtDom = String(list.find((c) => c.name === "_jwt")?.domain ?? "");
+  if (/airbnb\.ca/i.test(jwtDom)) {
+    return { tld: "ca", origin: "https://www.airbnb.ca" };
+  }
+  return { tld: "com", origin: "https://www.airbnb.com" };
+}
+
+function airbnbUrl(site: AirbnbSite, path = "/"): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${site.origin}${p}`;
+}
+
 // ------------------------------------------------------------ CDP client
 
 type CdpResult = { id: number; result?: any; error?: { message: string } };
@@ -132,7 +156,18 @@ class Cdp {
   }
 
   async goto(url: string, settleMs = 4000): Promise<void> {
-    await this.send("Page.navigate", { url });
+    // Lightpanda sometimes never ACKs Page.navigate on heavy Airbnb pages —
+    // wait briefly then settle; do not hard-fail the whole job on navigate alone.
+    try {
+      await Promise.race([
+        this.send("Page.navigate", { url }),
+        sleep(12_000).then(() => {
+          throw new Error("Page.navigate timeout");
+        }),
+      ]);
+    } catch (e) {
+      console.warn(`[cdp] Page.navigate ack missing for ${url} -- continuing anyway: ${(e as Error).message}`);
+    }
     await sleep(settleMs);
   }
 
@@ -145,31 +180,70 @@ class Cdp {
     return r.result?.value as T;
   }
 
-  /** Click the first element matching `selector` via DOM point dispatch. */
-  async click(selector: string): Promise<boolean> {
-    const point = await this.eval<{ x: number; y: number } | null>(`(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      el.scrollIntoView({ block: "center" });
-      const r2 = el.getBoundingClientRect();
-      return { x: r2.x + r2.width / 2, y: r2.y + r2.height / 2 };
-    })()`);
-    if (!point) return false;
-    for (const type of ["mousePressed", "mouseReleased"] as const) {
-      await this.send("Input.dispatchMouseEvent", {
-        type, x: point.x, y: point.y, button: "left", clickCount: 1,
-      });
+  /** Soft eval — returns undefined on exception/timeout instead of throwing. */
+  async evalSoft<T = any>(expression: string): Promise<T | undefined> {
+    try {
+      return await this.eval<T>(expression);
+    } catch {
+      return undefined;
     }
-    return true;
   }
 
-  /** Type text as real keystrokes (Airbnb composer is contenteditable). */
-  async type(text: string): Promise<void> {
+  /**
+   * Click via Runtime.evaluate (Lightpanda-reliable). Prefer DOM .click() over
+   * Input.dispatchMouseEvent — Input.* is thin on Lightpanda.
+   */
+  async click(selector: string): Promise<boolean> {
+    return this.eval<boolean>(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return false;
+      el.scrollIntoView({ block: "center" });
+      if (typeof el.click === "function") el.click();
+      else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+      return true;
+    })()`);
+  }
+
+  /**
+   * Type into the focused / matching element via DOM (contenteditable-safe).
+   * Prefer evaluate over Input.dispatchKeyEvent — Lightpanda often drops keys.
+   */
+  async type(text: string, selector?: string): Promise<void> {
+    const sel = selector ?? SEL.composer;
+    const ok = await this.eval<boolean>(`(() => {
+      const el = document.querySelector(${JSON.stringify(sel)})
+        || document.activeElement;
+      if (!el) return false;
+      el.focus();
+      const isCE = el.getAttribute("contenteditable") === "true" || !!el.isContentEditable;
+      if (isCE) {
+        el.textContent = "";
+        try {
+          el.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: ${JSON.stringify(text)} }));
+        } catch (_) {}
+        el.textContent = ${JSON.stringify(text)};
+        try {
+          el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: ${JSON.stringify(text)} }));
+        } catch (_) {
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      } else if ("value" in el) {
+        el.value = ${JSON.stringify(text)};
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      } else {
+        return false;
+      }
+      return true;
+    })()`);
+    if (ok) return;
+    // Last resort: character Input events (may no-op on Lightpanda).
     for (const char of text) {
-      await this.send("Input.dispatchKeyEvent", { type: "keyDown", text: char });
-      await this.send("Input.dispatchKeyEvent", { type: "keyUp", text: char });
-      await sleep(12 + Math.random() * 30); // human-ish cadence
+      try {
+        await this.send("Input.dispatchKeyEvent", { type: "keyDown", text: char });
+        await this.send("Input.dispatchKeyEvent", { type: "keyUp", text: char });
+      } catch { /* Lightpanda may reject Input.* */ }
+      await sleep(12 + Math.random() * 30);
     }
   }
 
@@ -215,9 +289,13 @@ async function dismissCookieBanner(cdp: Cdp): Promise<void> {
   }
 }
 
-async function isLoggedIn(cdp: Cdp): Promise<boolean> {
-  await cdp.goto("https://www.airbnb.com/account-settings", 3000);
-  return !(await cdp.currentUrl()).includes("/login");
+async function isLoggedIn(cdp: Cdp, site: AirbnbSite): Promise<boolean> {
+  await cdp.goto(airbnbUrl(site, "/account-settings"), 4000);
+  const href = (await cdp.evalSoft<string>("location.href")) ?? "";
+  if (!href) return false;
+  if (href.includes("/login")) return false;
+  // Soft signal: account-settings chrome without a login redirect.
+  return href.includes(`airbnb.${site.tld}`);
 }
 
 // -------------------------------------------------------- session store
@@ -231,7 +309,7 @@ async function isLoggedIn(cdp: Cdp): Promise<boolean> {
 // Anything older than this cutoff is treated as absent rather than active.
 const SESSION_EPOCH_CUTOFF = "2000-01-01T00:00:00.000Z";
 
-async function getSession(): Promise<{ cookies: any[]; jwt: string } | null> {
+async function getSession(): Promise<{ cookies: any[]; jwt: string; site: AirbnbSite } | null> {
   const { data } = await db
     .from("platform_sessions")
     .select("cookies_json, jwt, refreshed_at")
@@ -242,13 +320,29 @@ async function getSession(): Promise<{ cookies: any[]; jwt: string } | null> {
     .limit(1)
     .maybeSingle();
   if (!data?.cookies_json) return null;
-  return { cookies: data.cookies_json as any[], jwt: (data.jwt as string) ?? "" };
+  const cookies = data.cookies_json as any[];
+  const jwt = (data.jwt as string) || String(cookies.find((c: any) => c.name === "_jwt")?.value ?? "");
+  // Cookie-only / CA-without-_jwt rows are not usable — refuse restore rather
+  // than navigating COM with CA cookies (the previous death-spiral trigger).
+  if (!jwt) {
+    console.warn("[worker] active platform_session has no _jwt — run airbnb_cookie_push after a real Chrome login");
+    return null;
+  }
+  return { cookies, jwt, site: airbnbSiteFromCookies(cookies) };
 }
 
 async function saveSession(cdp: Cdp, status: string, error = ""): Promise<void> {
   const cookies = await cdp.cookies();
   const airbnb = cookies.filter((c: any) => String(c.domain).includes("airbnb"));
   const jwtCookie = airbnb.find((c: any) => c.name === "_jwt");
+  const now = new Date().toISOString();
+  // Retire epoch / never-refreshed rows so they cannot shadow a fresh login
+  // in audits that sort by last_used_at without a cutoff filter.
+  await db
+    .from("platform_sessions")
+    .update({ status: "expired", last_error: "superseded by fresh session_refresh" })
+    .eq("platform", "airbnb")
+    .lte("refreshed_at", SESSION_EPOCH_CUTOFF);
   await db.from("platform_sessions").insert({
     platform: "airbnb",
     status,
@@ -256,12 +350,12 @@ async function saveSession(cdp: Cdp, status: string, error = ""): Promise<void> 
     jwt: jwtCookie?.value ?? "",
     user_agent: UA,
     lightpanda_url: LP_WS,
-    refreshed_at: new Date().toISOString(),
+    refreshed_at: now,
     // last_used_at previously had no writer at all: every row in production sat
     // at the Unix epoch, yet pipeline_audit.py selected it AND sorted by it, so
     // the audit reported a never-touched column as a real date. Write it here so
     // the column means what its name says.
-    last_used_at: new Date().toISOString(),
+    last_used_at: now,
     expires_at: jwtCookie?.expires
       ? new Date(jwtCookie.expires * 1000).toISOString()
       : "",
@@ -269,10 +363,12 @@ async function saveSession(cdp: Cdp, status: string, error = ""): Promise<void> 
   });
 }
 
-async function restoreSession(cdp: Cdp): Promise<boolean> {
+async function restoreSession(cdp: Cdp): Promise<AirbnbSite | null> {
   const session = await getSession();
-  if (!session) return false;
-  await cdp.goto("https://www.airbnb.com/", 2500); // right origin before setting cookies
+  if (!session) return null;
+  const { site } = session;
+  // Navigate the session's TLD first so Domain=.airbnb.ca|.com cookies attach.
+  await cdp.goto(airbnbUrl(site, "/"), 2500);
   for (const c of session.cookies) {
     try {
       await cdp.send("Network.setCookie", {
@@ -282,7 +378,8 @@ async function restoreSession(cdp: Cdp): Promise<boolean> {
       });
     } catch { /* individual cookie rejected — keep going */ }
   }
-  return isLoggedIn(cdp);
+  if (!(await isLoggedIn(cdp, site))) return null;
+  return site;
 }
 
 // ------------------------------------------------------------- job kinds
@@ -296,42 +393,69 @@ async function restoreSession(cdp: Cdp): Promise<boolean> {
  *  (key='airbnb_login_challenge') and polls until the dashboard/user writes
  *  the code back, then completes login and captures cookies. */
 async function jobSessionRefresh(cdp: Cdp, payload: any): Promise<any> {
-  if (await restoreSession(cdp)) {
+  const restored = await restoreSession(cdp);
+  if (restored) {
     await saveSession(cdp, "active");
-    return { mode: "refreshed_from_cookies" };
+    return { mode: "refreshed_from_cookies", site: restored.tld };
   }
 
   const creds = await getSetting("airbnb_credentials");
   if (!creds?.email) throw new Error("no airbnb_credentials in settings table");
 
-  await cdp.goto("https://www.airbnb.com/login", 6000);
+  // Lightpanda cannot complete Airbnb's login DOM reliably — prefer cookie push.
+  // If we must try credentials, default COM unless AIRBNB_ORIGIN forces CA.
+  const loginSite: AirbnbSite =
+    /airbnb\.ca/i.test(process.env.AIRBNB_ORIGIN ?? "")
+      ? { tld: "ca", origin: "https://www.airbnb.ca" }
+      : { tld: "com", origin: "https://www.airbnb.com" };
+
+  await cdp.goto(airbnbUrl(loginSite, "/login"), 6000);
   await dismissCookieBanner(cdp);
 
-  // Step 1: email -> Continue
-  await cdp.eval(`(() => {
-    const el = document.querySelector("#phone-or-email");
-    el.focus(); el.value = ${JSON.stringify(creds.email)};
+  // Step 1: email -> Continue (null-safe — Airbnb often A/B's the login DOM)
+  const emailFilled = await cdp.eval<boolean>(`(() => {
+    const el = document.querySelector("#phone-or-email, input[name='email'], input[type='email'], input[autocomplete='username']");
+    if (!el) return false;
+    el.focus();
+    el.value = ${JSON.stringify(creds.email)};
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
   })()`);
+  if (!emailFilled) {
+    await saveSession(cdp, "expired", "login form missing email field");
+    throw new Error(
+      "login form missing email field — run scripts/airbnb_cookie_push.py from a real Chrome session",
+    );
+  }
   await clickButtonWithText(cdp, ["Continue"]);
   await sleep(4000);
 
   // Step 2: what did Airbnb present?
-  const hasPassword = await cdp.eval<boolean>(`!!document.querySelector('input[type="password"], input[name="user[password]"], #password')`);
+  const hasPassword = await cdp.evalSoft<boolean>(
+    `!!document.querySelector('input[type="password"], input[name="user[password]"], #password')`,
+  );
   if (!hasPassword) {
     // Prefer password over emailed code when offered the choice.
     await clickLinkWithText(cdp, ["use password instead", "password instead", "log in with password", "use password"]);
     await sleep(3000);
   }
-  const hasPasswordNow = await cdp.eval<boolean>(`!!document.querySelector('input[type="password"], input[name="user[password]"], #password')`);
+  const hasPasswordNow = await cdp.evalSoft<boolean>(
+    `!!document.querySelector('input[type="password"], input[name="user[password]"], #password')`,
+  );
   if (hasPasswordNow && creds.password) {
-    await cdp.eval(`(() => {
+    const pwOk = await cdp.eval<boolean>(`(() => {
       const el = document.querySelector('input[type="password"], input[name="user[password]"], #password');
-      el.focus(); el.value = ${JSON.stringify(creds.password)};
+      if (!el) return false;
+      el.focus();
+      el.value = ${JSON.stringify(creds.password)};
       el.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
     })()`);
-    await clickButtonWithText(cdp, ["Log in", "Continue", "Sign in"]);
-    await sleep(6000);
+    if (pwOk) {
+      await clickButtonWithText(cdp, ["Log in", "Continue", "Sign in"]);
+      await sleep(6000);
+    }
   }
 
   // Verification-code wall? Park and wait for the human to supply it.
@@ -343,7 +467,7 @@ async function jobSessionRefresh(cdp: Cdp, payload: any): Promise<any> {
   })()`);
 
   if (needsCode || (await cdp.currentUrl()).includes("/login")) {
-    if (!needsCode && (await isLoggedIn(cdp))) {
+    if (!needsCode && (await isLoggedIn(cdp, loginSite))) {
       await saveSession(cdp, "active");
       return { mode: "password_login_captured" };
     }
@@ -366,7 +490,7 @@ async function jobSessionRefresh(cdp: Cdp, payload: any): Promise<any> {
       let ok = false;
       while (Date.now() < deadline) {
         await sleep(5000);
-        if (await isLoggedIn(cdp)) { ok = true; break; }
+        if (await isLoggedIn(cdp, loginSite)) { ok = true; break; }
       }
       if (!ok) {
         await saveSession(cdp, "expired", "login blocked (captcha/rate-limit/manual wait timeout)");
@@ -375,12 +499,12 @@ async function jobSessionRefresh(cdp: Cdp, payload: any): Promise<any> {
     }
   }
 
-  if (!(await isLoggedIn(cdp))) {
+  if (!(await isLoggedIn(cdp, loginSite))) {
     await saveSession(cdp, "expired", "post-login check failed");
     throw new Error("login did not stick");
   }
   await saveSession(cdp, "active");
-  return { mode: "login_captured" };
+  return { mode: "login_captured", site: loginSite.tld };
 }
 
 // ---- login helpers ---------------------------------------------------------------------
@@ -430,8 +554,9 @@ async function clickLinkWithText(cdp: Cdp, labels: string[]): Promise<boolean> {
 
 /** inbox_sync: list threads, read each, upsert into messages. */
 async function jobInboxSync(cdp: Cdp, payload: any): Promise<any> {
-  if (!(await restoreSession(cdp))) throw new Error("no valid session — queue session_refresh");
-  await cdp.goto(`https://www.airbnb.com${INBOX_PATH}`, 6000);
+  const site = await restoreSession(cdp);
+  if (!site) throw new Error("no valid session — queue session_refresh");
+  await cdp.goto(airbnbUrl(site, INBOX_PATH), 6000);
   await dismissCookieBanner(cdp);
 
   const threads = await cdp.eval<{ id: string; href: string }[]>(`(() => {
@@ -449,7 +574,7 @@ async function jobInboxSync(cdp: Cdp, payload: any): Promise<any> {
   const failures: string[] = [];
   for (const t of threads.slice(0, limit)) {
     try {
-      await cdp.goto(`https://www.airbnb.com${INBOX_PATH}/${t.id}`, 4000);
+      await cdp.goto(airbnbUrl(site, `${INBOX_PATH}/${t.id}`), 4000);
       const rec = await cdp.eval<any>(`(() => {
         const bubbles = [...document.querySelectorAll(${JSON.stringify(SEL.msgBubble)})];
         return {
@@ -499,7 +624,8 @@ async function jobInboxSync(cdp: Cdp, payload: any): Promise<any> {
 async function jobSendMessage(cdp: Cdp, payload: any): Promise<any> {
   const body: string = payload.body ?? "";
   if (!body) throw new Error("job missing body");
-  if (!(await restoreSession(cdp))) throw new Error("no valid session — queue session_refresh");
+  const site = await restoreSession(cdp);
+  if (!site) throw new Error("no valid session — queue session_refresh");
 
   if (payload.thread_url) {
     await cdp.goto(payload.thread_url, 4000);
@@ -508,7 +634,7 @@ async function jobSendMessage(cdp: Cdp, payload: any): Promise<any> {
     const checkin = new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10);
     const checkout = new Date(Date.now() + 46 * 864e5).toISOString().slice(0, 10);
     await cdp.goto(
-      `https://www.airbnb.com/rooms/${payload.listing_id}?check_in=${checkin}&check_out=${checkout}&adults=2`, 5000);
+      airbnbUrl(site, `/rooms/${payload.listing_id}?check_in=${checkin}&check_out=${checkout}&adults=2`), 5000);
     await dismissCookieBanner(cdp);
     // "Message host" sits below the reserve panel; aria-label varies slightly.
     const opened = await cdp.eval<boolean>(`(() => {
@@ -528,7 +654,7 @@ async function jobSendMessage(cdp: Cdp, payload: any): Promise<any> {
   if (!(await cdp.exists(SEL.composer))) throw new Error("composer not found (session expired?)");
   await cdp.click(SEL.composer);
   await sleep(600);
-  await cdp.type(body);
+  await cdp.type(body, SEL.composer);
   await sleep(1200);
 
   if (payload.dry_run) {
@@ -568,9 +694,15 @@ async function jobSendMessage(cdp: Cdp, payload: any): Promise<any> {
 async function jobScrapeListing(cdp: Cdp, payload: any): Promise<any> {
   const id = String(payload.listing_id ?? "");
   if (!id) throw new Error("job missing listing_id");
+  // Public scrape defaults to COM; optional session steers CA hosts.
+  const session = await getSession();
+  const site = session?.site ?? { tld: "com" as const, origin: "https://www.airbnb.com" };
   const checkin = new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10);
   const checkout = new Date(Date.now() + 46 * 864e5).toISOString().slice(0, 10);
-  await cdp.goto(`https://www.airbnb.com/rooms/${id}?check_in=${checkin}&check_out=${checkout}&adults=2&currency=USD`, 5000);
+  await cdp.goto(
+    airbnbUrl(site, `/rooms/${id}?check_in=${checkin}&check_out=${checkout}&adults=2&currency=USD`),
+    5000,
+  );
   await dismissCookieBanner(cdp);
   const text = await cdp.bodyText();
   const grab = (re: RegExp, cast: (s: string) => any = (s) => s) => {
@@ -621,7 +753,9 @@ async function jobScrapeSearch(cdp: Cdp, payload: any): Promise<any> {
   if (!city) throw new Error("job missing city");
   const maxPages = Number(payload.max_pages ?? 3);
   const minBed = String(payload.min_bedrooms ?? "3");
-  const searchUrl = `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?min_bedrooms=${minBed}`;
+  const session = await getSession();
+  const site = session?.site ?? { tld: "com" as const, origin: "https://www.airbnb.com" };
+  const searchUrl = airbnbUrl(site, `/s/${encodeURIComponent(city)}/homes?min_bedrooms=${minBed}`);
 
   const found = new Map<string, string>();
   let url = searchUrl;
@@ -630,9 +764,10 @@ async function jobScrapeSearch(cdp: Cdp, payload: any): Promise<any> {
     await dismissCookieBanner(cdp);
     const cards = await cdp.eval<{ id: string; href: string }[]>(`(() => {
       const out = [];
+      const origin = ${JSON.stringify(site.origin)};
       for (const a of document.querySelectorAll(${JSON.stringify(SEL.roomLinks)})) {
         const m = (a.getAttribute("href") || "").match(/\\/rooms\\/(\\d+)/);
-        if (m) out.push({ id: m[1], href: "https://www.airbnb.com/rooms/" + m[1] });
+        if (m) out.push({ id: m[1], href: origin + "/rooms/" + m[1] });
       }
       return out;
     })()`);
@@ -695,13 +830,53 @@ async function claimJob(): Promise<any | null> {
   return null;
 }
 
-async function finishJob(id: string, ok: boolean, result: any, error = ""): Promise<void> {
+async function isPipelineLive(): Promise<boolean> {
+  // Env wins for explicit VM ops; otherwise honor Jarvis arm mirrored into
+  // settings.pipeline_live (see Jarvis-cortex/actions/pipeline_arm.py).
+  const liveEnv = (process.env.LUXE_PIPELINE_LIVE ?? "").trim();
+  if (liveEnv === "1" || liveEnv === "true") return true;
+  if (liveEnv === "0" || liveEnv === "false") return false;
+  try {
+    const row = await getSetting("pipeline_live");
+    if (row && typeof row === "object" && "armed" in row) return Boolean((row as any).armed);
+    if (row === true || row === "1" || row === "true") return true;
+  } catch { /* treat as disarmed */ }
+  return false;
+}
+
+/** Live send requires armed gate AND per-DM confirm_send on the job payload. */
+export function shouldForceDryRun(
+  payload: { dry_run?: boolean; confirm_send?: boolean } | null | undefined,
+  pipelineLive: boolean,
+): { force: boolean; reason: string } {
+  if (payload?.dry_run) return { force: false, reason: "already_dry_run" };
+  if (!pipelineLive) return { force: true, reason: "not_armed" };
+  if (payload?.confirm_send !== true) return { force: true, reason: "missing_confirm_send" };
+  return { force: false, reason: "armed_and_confirmed" };
+}
+
+async function finishJob(id: string, ok: boolean, result: any, error = "", kind = ""): Promise<void> {
   await db.from("browser_jobs").update({
     status: ok ? "done" : "failed",
     result: result ?? {},
     error,
     done_at: new Date().toISOString(),
   }).eq("id", id);
+  // Feed cortex EventSource/poll loop — activity is Supabase-backed live truth.
+  const label = kind || "browser_job";
+  await db.from("activity").insert({
+    kind: ok ? "browser_job" : "browser_job_fail",
+    message: ok
+      ? `Worker finished ${label} (${id.slice(0, 18)}…)`
+      : `Worker failed ${label}: ${(error || "unknown").slice(0, 120)}`,
+    meta: JSON.stringify({
+      icon: ok ? "check" : "warn",
+      datum: ok ? "DONE" : "FAIL",
+      job_id: id,
+      kind: label,
+    }),
+    created_at: new Date().toISOString(),
+  }).then(() => undefined).catch(() => undefined);
 }
 
 async function main(): Promise<void> {
@@ -712,9 +887,41 @@ async function main(): Promise<void> {
     if (!job) { await sleep(POLL_MS); continue; }
 
     const handler = HANDLERS[job.kind];
-    if (!handler) { await finishJob(job.id, false, {}, `unknown kind: ${job.kind}`); continue; }
+    if (!handler) { await finishJob(job.id, false, {}, `unknown kind: ${job.kind}`, job.kind); continue; }
 
-    // Send pacing: one outbound message per SEND_DELAY_MS, enforced worker-side.
+    // Refuse live sends unless ARMED (GO FOR IT) AND payload.confirm_send === true.
+    if (job.kind === "send_message") {
+      const live = await isPipelineLive();
+      const gate = shouldForceDryRun(job.payload, live);
+      // #region agent log
+      fetch("http://127.0.0.1:7687/ingest/7583fa93-c9ec-4be9-8fd7-aa5e00972f8e", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "78349c" },
+        body: JSON.stringify({
+          sessionId: "78349c",
+          runId: "confirm-send-gate",
+          hypothesisId: "H-confirm",
+          location: "worker.ts:send_message_gate",
+          message: "send_message dry_run gate",
+          data: {
+            jobIdPrefix: String(job.id || "").slice(0, 18),
+            pipelineLive: live,
+            payloadDryRun: Boolean(job.payload?.dry_run),
+            confirmSend: job.payload?.confirm_send === true,
+            force: gate.force,
+            reason: gate.reason,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      if (gate.force) {
+        console.warn(
+          `[worker] forcing dry_run on ${job.id} — ${gate.reason} (need GO FOR IT + confirm_send=true)`,
+        );
+        job.payload = { ...(job.payload ?? {}), dry_run: true };
+      }
+    }
     if (job.kind === "send_message" && !job.payload?.dry_run) {
       const wait = SEND_DELAY_MS - (Date.now() - lastSend);
       if (wait > 0) await sleep(wait);
@@ -724,7 +931,7 @@ async function main(): Promise<void> {
     try {
       await cdp.connect();
       const result = await handler(cdp, job.payload ?? {});
-      await finishJob(job.id, true, result);
+      await finishJob(job.id, true, result, "", job.kind);
       if (job.kind === "send_message") lastSend = Date.now();
       console.log(`[worker] ${job.kind} ${job.id} done`);
     } catch (e) {
@@ -734,9 +941,14 @@ async function main(): Promise<void> {
       if (retryable) {
         await db.from("browser_jobs").update({ status: "pending", error: msg }).eq("id", job.id);
       } else {
-        await finishJob(job.id, false, {}, msg);
-        if (/session|login|composer/.test(msg)) {
-          // Auto-queue a session refresh so the loop self-heals.
+        await finishJob(job.id, false, {}, msg, job.kind);
+        // Do not auto-queue session_refresh when Lightpanda cannot log in
+        // (cookie push required) — that was the session_refresh death spiral.
+        const needsCookiePush =
+          /cookie_push|missing email|_jwt|no valid session|login form|session likely expired|composer not found|login did not stick|post-login|captcha/i.test(
+            msg,
+          );
+        if (/session|login|composer/.test(msg) && !needsCookiePush) {
           await db.from("browser_jobs").insert({
             id: `bj_session_${crypto.randomUUID().replaceAll("-", "")}`,
             kind: "session_refresh", status: "pending", priority: 100, payload: {},

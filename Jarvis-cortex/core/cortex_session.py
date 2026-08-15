@@ -893,6 +893,18 @@ class CortexSession:
 
         elif name == "luxe_supabase_REAL_PIPELINE":
             from actions.luxe_supabase import luxe_supabase
+            from actions.pipeline_arm import utterance_contains_arm_phrase
+            # If the model queued arm_live without the phrase but the last user
+            # turn contained the exact arming words, arm here so one spoken
+            # "GO FOR IT" is enough.
+            if args.get("action") == "arm_live" and not args.get("phrase"):
+                last = ""
+                for msg in reversed(self._messages):
+                    if msg.get("role") == "user":
+                        last = str(msg.get("content") or "")
+                        break
+                if utterance_contains_arm_phrase(last):
+                    args = {**args, "phrase": "GO FOR IT"}
             r = await asyncio.to_thread(luxe_supabase, parameters=args)
             return r or "Done."
 
@@ -1112,6 +1124,29 @@ class CortexSession:
                 self._last_user_speech = time.monotonic()
                 self.ui.write_log(f"You: {transcript}")
                 self._session_log.append(f"User: {transcript}")
+                # Exact arming phrase — dry-run stays on without it. Mirrors to
+                # Supabase settings.pipeline_live so the VM worker sees the gate.
+                try:
+                    from actions.pipeline_arm import utterance_contains_arm_phrase, arm_pipeline
+                    if utterance_contains_arm_phrase(transcript):
+                        arm_pipeline()
+                        self.ui.write_log("Pipeline ARMED (GO FOR IT)")
+                        # Heartbeat so always-on watchers see arm state without secrets.
+                        try:
+                            hb = Path(__file__).resolve().parent.parent / "config" / "pipeline_daemon.heartbeat"
+                            hb.parent.mkdir(parents=True, exist_ok=True)
+                            hb.write_text(
+                                json.dumps({
+                                    "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                    "armed": True,
+                                    "source": "cortex_session",
+                                }) + "\n",
+                                encoding="utf-8",
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
 
                 self._refresh_system_message()
                 self._messages.append({"role": "user", "content": transcript})

@@ -38,5 +38,29 @@ values ('bj_' || gen_random_uuid()::text, 'send_message', 'pending', 10,
 - Session failure auto-queues a session_refresh job (self-healing loop).
 - dry_run composes the message and clears the composer without sending —
   use it to validate the pathway before going live.
-- The composer is contenteditable plaintext-only: text is typed as real
-  keystrokes, never set via .value (Airbnb ignores that).
+- Live sends require the operator phrase **GO FOR IT** (arms Jarvis + mirrors
+  `settings.pipeline_live`) plus `confirm_send=true` on the job. Worker also
+  accepts `LUXE_PIPELINE_LIVE=1` as an override. Until armed, dry_run is forced.
+- The composer is contenteditable plaintext-only: text is typed via
+  Runtime.evaluate DOM writes (not fragile Input.* key events).
+
+## Session bootstrap (operator)
+
+Epoch `platform_sessions` rows are ignored. After Lightpanda + worker are up:
+
+```bash
+# Copy path works with Chrome open on macOS. Does not print cookie/JWT values.
+# Requires a real Chrome login with `_jwt` on airbnb.com OR airbnb.ca
+# (CA vs COM are separate; worker navigates whichever TLD has `_jwt`).
+python3 scripts/airbnb_cookie_push.py
+# Or queue session_refresh after a valid Airbnb login is available to the worker.
+```
+
+Then smoke (dry-run outreach only):
+
+```bash
+python3 scripts/jarvis_wire_check.py
+python3 scripts/pipeline_smoke.py
+```
+
+See `docs/PIPELINE_LIVE_GATE.md` and `luxe-cortex/docs/vm-systemd-units.md`.

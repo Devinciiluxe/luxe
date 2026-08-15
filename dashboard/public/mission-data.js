@@ -1,6 +1,7 @@
-/* Mission Jarvis — ops data shaped like luxe-design's schema (leads, orders, messages, outbox). Demo values. */
+/* Mission Jarvis — DEMO ONLY. Static numbers. NOT Supabase / NOT live Postgres.
+ * Do not treat window.MJ3 as pipeline truth. Use luxe-cortex /cortex instead. */
 window.MJ3 = {
-  meta: { system: "MISSION JARVIS", version: "v3.7" },
+  meta: { system: "MISSION JARVIS (DEMO — NOT LIVE)", version: "v3.7-demo", live: false },
   kpis: { inPipeline: 34, rendering: 2, needsYou: 1, mtd: "$18,400" },
   workers: [
     { name: "higgsfield", busy: true, status: "rendering ORD-8841 · 12 Palm Grove" },
@@ -9,7 +10,7 @@ window.MJ3 = {
     { name: "fulfillment", busy: false, status: "watches Square + photo uploads" },
     { name: "sales-optimizer", busy: false, status: "weekly pass over calls + messages" },
   ],
-  /* real records from platform-outbox/ — 20 queued airbnb DM openers, run of 2026-08-03 */
+  /* Static demo snapshot shaped like an old outbox export — NOT live Supabase. */
   outbox: {
     queued: 20, sending: 0, sentToday: 0, cap: 40, failed: 0, retry: 0,
     channels: [["airbnb dm", 20]],
@@ -45,7 +46,7 @@ window.MJ3 = {
     { time: "13:22", kind: "call", message: "Call with Marta Villanueva — call_booked" },
   ],
   nodes: [
-    { id: "core", parent: null, r: 16, state: "ai", label: "Jarvis", sublabel: "5 agents · all systems live" },
+    { id: "core", parent: null, r: 16, state: "ai", label: "Jarvis", sublabel: "DEMO · not connected to Supabase" },
     { id: "leads", parent: "core", r: 9, state: "idle", label: "Leads found", sublabel: "3 markets · $1.3–3.2k/nt", count: 20 },
     { id: "outreach", parent: "core", r: 9, state: "live", label: "Outreach", sublabel: "run 08-03 · awaiting send", count: 20 },
     { id: "outbox", parent: "core", r: 8, state: "live", label: "Outbox", sublabel: "20 queued · airbnb dm", count: 20 },
@@ -67,7 +68,7 @@ window.MJ3 = {
     ["outbox", "outreach"], ["outbox", "conversations"],
   ],
   dossiers: {
-    core: { title: "Jarvis", id: "MISSION CONTROL", state: "ai", chips: ["5 AGENTS", "AUTO"], rows: [["Watching", "34 in pipeline"], ["Sending", "off · dry run"], ["Data", "outbox + leads live · rest demo"]], note: "I narrate what moves. Click any node, or let me walk the pipeline." },
+    core: { title: "Jarvis", id: "DEMO · NOT LIVE", state: "ai", chips: ["DEMO", "NOT SUPABASE"], rows: [["Watching", "34 in pipeline (demo)"], ["Sending", "off · dry run (demo)"], ["Data", "Demo values · not connected to Supabase"]], note: "This is a static demo. Authoritative pipeline UI is luxe-cortex /cortex." },
     leads: { title: "Leads found", id: "STAGE 01", state: "idle", chips: ["20 QUEUED"], rows: [["Run of 08-03", "20 leads"], ["Above $800/nt", "20 of 20"], ["Markets", "Beverly Hills 5 · Newport 14 · Big Sur 1"], ["Rate band", "$1,300–$3,150/nt", 1]], note: "Twenty above the line from the August third run. Nothing needs you here." },
     outreach: { title: "Outreach", id: "STAGE 02", state: "live", chips: ["RUN 08-03"], rows: [["Queued", "20 of 40 cap"], ["Channel", "airbnb dm"], ["Sent", "0"]], note: "Openers are written and queued. Replies route back to me once they go." },
     outbox: { title: "Outbox", id: "SEND QUEUE", state: "live", chips: ["20 QUEUED", "AIRBNB DM"], rows: [["Queued", "20"], ["Markets", "BH 5 · NB 14 · Big Sur 1"], ["Rate band", "$1,300–$3,150/nt", 1], ["Failed", "0"]], note: "Twenty openers queued from the August third run. All Airbnb DMs — none sent yet." },
@@ -107,7 +108,7 @@ window.MJ3 = {
       { dir: "outbound", who: "devin", time: "Aug 2, 08:12 AM", body: "Priya —\n\nCame across Sea Glass Villa. The photos are good. They're also 18 separate images a group of ten has to assemble into a floor plan before anyone can agree to spend $1,200 a night.\n\nWe build one continuous film from photos you already have — a single move through the property so guests understand the whole house in ninety seconds. Back in 24 hours, nothing to schedule.\n\nWorth a look at the tiers?" },
     ]},
   ],
-  /* synthetic live events for the ticker; [minGap s, line, target, spoken] */
+  /* Synthetic demo ticker events only — not real-time production activity. */
   events: [
     { kind: "stage_change", message: "ORD-8841 render 68% — dusk pass", target: "generating", say: "Render at sixty-eight percent. Dusk pass underway." },
     { kind: "reply", message: "LD-2244 replied — pricing question", target: "conversations", say: "New reply. LD twenty-two forty-four is asking about tiers." },

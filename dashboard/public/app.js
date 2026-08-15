@@ -1,5 +1,6 @@
-// Mission Jarvis — client app. Vanilla JS, no build step. Talks to server.mjs's /api/* endpoints;
-// falls back to the static snapshot (window.MJ3) if the server is unreachable (e.g. opened as a file).
+// Mission Jarvis — DEMO client only. There is no server.mjs in this folder.
+// npm start → refuse-demo-start.mjs. Numbers come from mission-data.js (static).
+// Live pipeline UI: luxe-cortex /cortex (JARVIS_MINDMAP_URL), Supabase-backed.
 const HUE = { live: "#34E0D0", attention: "#F7B54F", stuck: "#FF6B6B", ai: "#786EFF", value: "#C6A469", idle: "#93A0A6" };
 const KIND_DOT = { stage_change: "#34E0D0", awaiting_human: "#F7B54F", negotiation: "#786EFF", lead_run: "#C6A469", call: "#786EFF", reply: "#34E0D0", outbox: "#34E0D0" };
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
@@ -35,36 +36,28 @@ function mergeFeedEntries(entries) {
   return added;
 }
 
-/* ---------- server polling (live overlay) ---------- */
+/* ---------- server polling (disabled on demo surface) ---------- */
 async function pollState() {
-  try {
-    const r = await fetch("/api/state", { cache: "no-store" });
-    if (!r.ok) throw 0;
-    const s = await r.json();
-    app.live = true; $("#srcline").textContent = "LIVE · SERVER CONNECTED"; $("#srcline").style.color = "rgba(52,224,208,.55)";
-    app.outboxOverrides = s.outbox || {};
-    mergeFeedEntries(s.feed);
-    renderOutbox();
-  } catch { if (app.live !== false) { app.live = false; $("#srcline").textContent = "STATIC SNAPSHOT"; $("#srcline").style.color = "rgba(247,181,79,.5)"; } }
+  // No-op: root dashboard has no server. Never fetch /api/state or look "live".
+  app.live = false;
+  const el = $("#srcline");
+  if (el) {
+    el.textContent = "DEMO ONLY · STATIC mission-data.js · NOT SUPABASE";
+    el.style.color = "rgba(255,107,107,.85)";
+  }
 }
 async function callApi(path, body) {
-  try { const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }); return await r.json(); }
-  catch { return { ok: false, offline: true }; }
+  // Demo surface: never imply API writes reached Postgres/Supabase.
+  return { ok: false, offline: true, demo: true };
 }
 
-/* ---------- live snapshot polling (nodes/dossiers/conversations/feed) ----------
- * window.MJ3 is only set once, at page load. server.mjs recomputes the real
- * snapshot from Postgres every 5s (live-data.mjs), so the client has to poll
- * it too or the graph/inspector/thread would go stale the moment the page
- * finishes loading. /mission-data.json is the same snapshot server.mjs already
- * builds for /mission-data.js, just returned as plain JSON instead of a
- * window.MJ3=... script the client can't easily re-fetch and re-parse. */
+/* ---------- live snapshot polling — intentionally disabled ----------
+ * Historical notes referenced a removed server.mjs + live-data.mjs Postgres
+ * path. That path is gone. Authoritative live UI is luxe-cortex /cortex. */
 async function pollLiveData() {
-  try {
-    const r = await fetch("/mission-data.json", { cache: "no-store" });
-    if (!r.ok) throw 0;
-    applyLiveUpdate(await r.json());
-  } catch { /* keep showing the last good snapshot */ }
+  // Intentionally no-op: root dashboard has no live server. Never overwrite
+  // demo KPIs with a fetch that could look "live". Authoritative UI is luxe-cortex.
+  return;
 }
 function applyLiveUpdate(fresh) {
   D.kpis = fresh.kpis; D.workers = fresh.workers; D.outbox = fresh.outbox;
