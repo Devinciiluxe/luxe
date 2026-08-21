@@ -1,24 +1,31 @@
-# Root `dashboard/` — DEMO ONLY (not live)
+# Root `dashboard/` — redirects to the live pipeline UI
 
-**This directory is not the live LUXE pipeline UI.**
-
-| | Root `dashboard/` | **luxe-cortex** `/cortex` |
-|---|---|---|
-| Data | Static `public/mission-data.js` | Supabase + EventSource |
-| `npm start` | Refuses (`refuse-demo-start.mjs`) | `wrangler` / bun on `:8787` |
-| Jarvis mindmap | Never point here | `JARVIS_MINDMAP_URL=…/cortex` |
-
-- Numbers you see are a **demo snapshot** — not Postgres/Supabase truth.
-- There is no `server.mjs`; `live-data.mjs` is unused historical reference.
-- Live leads, jobs, sessions, and SSE live in **luxe-cortex** (`/cortex`)
-  backed by Supabase + the VM worker + Lightpanda.
-
-Point Jarvis at cortex:
+This folder is no longer a demo. `npm start` runs a tiny redirect server
+(`server.mjs`): every request gets a 302 to the real, Supabase-backed LUXE
+pipeline UI at **luxe-cortex**'s `/cortex` route. There is exactly one live
+ops surface in this repo — this folder doesn't duplicate it, it just points
+here to it.
 
 ```bash
-export JARVIS_MINDMAP_URL="http://localhost:8787/cortex"
-# or the VM public URL, e.g. https://cortex.yourdomain.com/cortex
+cd dashboard
+npm start                                                          # -> http://localhost:8787/cortex
+JARVIS_MINDMAP_URL=https://cortex.yourdomain.com/cortex npm start  # prod target
 ```
 
-**Operator glance test:** red DEMO banner + “DEMO VALUES” on this folder;
-cyan **LIVE · SUPABASE** chips on luxe-cortex.
+Target URL comes from `JARVIS_MINDMAP_URL` — the same env var used
+elsewhere in this repo for the live cortex URL (see
+`deploy/cortex.env.example`, `Jarvis-cortex/ui.py`) — defaulting to
+`http://localhost:8787/cortex` for local dev. `PORT` (default `3000`)
+controls what this redirect server itself listens on.
+
+## History
+
+This folder used to ship a static "MISSION JARVIS" demo
+(`public/mission-data.js` + a canvas UI) that intentionally refused to
+`npm start`, plus a `live-data.mjs` wired to an unrelated, already-orphaned
+Postgres schema (`orders`/`video_jobs`/`escalations` — a different project's
+data model, not this repo's Supabase pipeline; no `DATABASE_URL` for it
+exists anywhere in this repo). Both were removed rather than wired up to
+real data, since the only real live pipeline this repo has is Supabase,
+already served live at `luxe-cortex` `/cortex`. See git history if you need
+the old files.
